@@ -1,206 +1,93 @@
 # Dot Phoenix AI
 
-**An AI-powered lead discovery, verification, qualification, and monitoring platform for Dot Phoenix Solutions.**
+**AI-powered global lead discovery, verification, qualification, and agent monitoring platform for Dot Phoenix Solutions.**
 
 ## 1. Project Overview
 
-Dot Phoenix AI is an internal platform designed to discover genuine business opportunities and potential collaboration partners from global markets.
+Dot Phoenix AI is an internal business intelligence platform designed to discover genuine global project opportunities and technology collaboration partnerships.
 
-The platform uses specialized AI agents to research companies, verify information, evaluate opportunities, and organize qualified leads in a centralized dashboard.
+The platform uses specialized AI agents to research companies, collect supporting evidence, verify information, qualify opportunities, and organize leads in a centralized dashboard.
 
-**Phase 1 focuses exclusively on lead generation and management.** The team will manually review leads and contact companies themselves. Automated email sending and automated outreach are not included in Phase 1.
+The system is designed to be modular, scalable, observable, secure, and cost-conscious.
 
-### Business Goals
+### Primary objectives
 
 - Discover genuine global business leads.
 - Identify companies that may need our services.
-- Find potential project opportunities and collaboration partnerships.
-- Verify company, contact, and opportunity information using evidence.
-- Reduce duplicate, irrelevant, and fabricated leads.
-- Monitor AI agents, tasks, errors, and progress in one dashboard.
-- Track lead quality, research costs, and business opportunities.
+- Discover project requirements and technology collaboration opportunities.
+- Verify company, contact, and opportunity information independently.
+- Reduce duplicate, irrelevant, and unsupported leads.
+- Monitor agent execution, task progress, errors, and results.
+- Track AI model usage, token consumption, and estimated costs.
+- Provide an organized interface for manually reviewing and managing leads.
 
-## 2. Services Covered
+### Phase 1 principle
 
-The platform should discover opportunities related to:
+**Phase 1 is strictly for lead generation and management.**
 
-- Web application development
-- Mobile application development
-- SaaS product development
-- AI solutions and business automation
-- Digital marketing
-- Payroll systems
-- Enterprise software and business systems
-- Technology consulting and development partnerships
+The system will discover, verify, qualify, and store leads. Our team will manually review the results and contact companies.
+
+Automated emails, email account integrations, automated outreach campaigns, and automatic follow-ups are excluded from Phase 1.
+
+---
+
+## 2. Company Services
+
+The platform should identify opportunities related to:
+
+1. Web application development
+2. Mobile application development
+3. SaaS product development
+4. AI solutions and business automation
+5. Digital marketing
+6. Payroll systems
+7. Enterprise software and business systems
+8. Technology consulting
+9. Software development partnerships
+10. Custom software projects and technology collaborations
+
+The lead discovery workflow should be configurable so that new service categories can be added without redesigning the entire system.
+
+---
 
 ## 3. Technology Stack
 
-| Technology | Purpose |
+| Technology | Responsibility |
 |---|---|
-| Next.js | Web application and dashboard |
+| Next.js App Router | Web application and dashboard |
 | React | User interface |
-| TypeScript | Type safety and maintainability |
+| TypeScript | Type safety |
 | pnpm | Package management |
-| Material UI (MUI) | Dashboard components and styling |
-| Node.js | Server-side application and workers |
-| PostgreSQL | Persistent application database |
+| Material UI (MUI) | UI components and styling |
+| Node.js | Server-side execution and background workers |
+| PostgreSQL | Persistent relational database |
 | Prisma ORM | Database access and migrations |
-| PostgreSQL-backed job queue | Durable background task processing |
+| PostgreSQL-backed job queue | Durable background job processing |
 | Server-Sent Events (SSE) | Live dashboard updates |
-| AI model adapters | Connect to supported AI providers |
+| AI model adapters | Integration with supported AI providers |
 | Docker Compose | Local PostgreSQL development environment |
 
-**Important:** The final dependency versions and configurations must be verified for compatibility before installation.
+### Technology rules
 
-## 4. System Architecture
+- Continue using the existing Next.js and pnpm project.
+- Use the existing root-level `app/` directory.
+- Do not create a second Next.js application inside `src/`.
+- Use MUI as the primary UI component library.
+- Keep API route handlers thin.
+- Put reusable business logic in domain modules.
+- Execute long-running research tasks in separate worker processes.
+- Verify official documentation and dependency compatibility before installing or upgrading packages.
+- Do not add Redis or other infrastructure unless a demonstrated requirement justifies it.
 
-The application is organized as a modular monolith in a single repository, with separate background worker processes.
+The exact dependency versions and database configuration must be verified before implementation.
 
-```text
-Dot Phoenix AI
-│
-├── Web Dashboard (Next.js)
-│   ├── Overview
-│   ├── Leads
-│   ├── Agents
-│   ├── Tasks
-│   ├── Analytics
-│   └── Settings
-│
-├── Backend Modules
-│   ├── Lead Management
-│   ├── Agent Management
-│   ├── Task Management
-│   ├── Verification
-│   ├── Qualification
-│   ├── Analytics
-│   └── Audit
-│
-├── Background Workers
-│   ├── Master Agent
-│   ├── Research Agent
-│   ├── Verification Agent
-│   ├── Qualification Agent
-│   └── Quality Agent
-│
-├── Infrastructure
-│   ├── PostgreSQL Database
-│   ├── Job Queue
-│   ├── Event Streaming
-│   ├── Research Source Connectors
-│   └── AI Model Router
-│
-└── External Sources
-    ├── Authorized APIs
-    └── Permitted Public Information Sources
-```
+---
 
-The dashboard and workers share domain logic, database access, task definitions, and validation rules. Long-running research jobs should execute in workers rather than block web requests.
+## 4. Current Repository Structure
 
-## 5. AI Agents
+The project currently uses a root-level `app/` directory.
 
-### Master Agent
-
-- Coordinates the research workflow.
-- Assigns tasks to appropriate agents.
-- Tracks task status and results.
-- Handles retries and failures according to defined policies.
-- Ensures each task follows the approved workflow.
-
-### Research Agent
-
-- Searches permitted sources for relevant companies and opportunities.
-- Collects publicly available business information.
-- Records source URLs and retrieval timestamps.
-- Identifies potential project and partnership opportunities.
-
-### Verification Agent
-
-- Checks whether company information is supported by evidence.
-- Verifies contact information when reliable sources are available.
-- Evaluates opportunity evidence separately from company verification.
-- Records verification status and reasons.
-- Never invents missing information.
-
-### Qualification Agent
-
-- Evaluates how relevant a lead is to our services.
-- Scores project opportunities and partnership potential.
-- Considers available evidence, business relevance, and opportunity quality.
-- Explains why a lead received its score.
-
-### Quality Agent
-
-- Detects duplicate or inconsistent records.
-- Flags unsupported claims and weak evidence.
-- Checks required fields and data quality.
-- Prevents unverified information from being presented as confirmed.
-
-### CRM and Reporting Responsibilities
-
-Lead storage, reporting, analytics, and audit history are handled by shared application modules. They do not need to be separate AI agents in the initial release.
-
-## 6. Agent Monitoring Dashboard
-
-The dashboard should show the current state of every agent and background task.
-
-Required monitoring information:
-
-- Agent status: working, idle, stalled, failed, or offline.
-- Current task and task progress.
-- Last heartbeat and last successful run.
-- Task start time, completion time, and duration.
-- Recent events, logs, warnings, and errors.
-- Results produced by each agent.
-- AI model and provider used.
-- Token usage and estimated model cost when available.
-- Retry count and failure reason.
-- Links between leads, tasks, evidence, and agent runs.
-
-Agent status must reflect persisted runtime events and heartbeat information, not just a hardcoded dashboard label.
-
-## 7. Lead Data Quality Requirements
-
-Every lead should have a traceable record of where its information came from.
-
-### Evidence Requirements
-
-- Source URL
-- Source type
-- Retrieval timestamp
-- Relevant supporting information
-- Verification status
-- Verification timestamp when applicable
-- Reason for rejection or uncertainty
-
-### Separate Verification Statuses
-
-The platform must distinguish:
-
-1. **Company verification:** Is the company information supported?
-2. **Contact verification:** Is the contact information supported?
-3. **Opportunity verification:** Is the business opportunity supported?
-
-A verified company does not automatically mean its contact information or business opportunity is verified.
-
-### Deduplication
-
-The platform should identify duplicate companies, contacts, and opportunities using suitable identifiers and matching rules. Potential duplicates should be reviewed rather than incorrectly merged.
-
-### Lead Scoring
-
-Each score should be explainable and based on defined criteria, such as:
-
-- Service relevance
-- Evidence quality
-- Opportunity specificity
-- Business fit
-- Information completeness
-- Recency of evidence
-
-Missing information must not be treated as confirmed information.
-
-## 8. Project Folder Structure
+The target structure is:
 
 ```text
 agent-dotphoenix/
@@ -213,6 +100,8 @@ agent-dotphoenix/
 │   │   ├── analytics/
 │   │   └── settings/
 │   ├── api/
+│   ├── favicon.ico
+│   ├── globals.css
 │   ├── layout.tsx
 │   └── page.tsx
 │
@@ -239,6 +128,7 @@ agent-dotphoenix/
 │
 ├── theme/
 ├── lib/
+│
 ├── workers/
 │   ├── master/
 │   ├── research/
@@ -261,38 +151,328 @@ agent-dotphoenix/
 │   ├── adr/
 │   └── ARCHITECTURE.md
 │
-├── docker-compose.yml
+├── public/
 ├── .env.example
 ├── .gitignore
+├── docker-compose.yml
+├── folderstructure.mjs
 ├── package.json
 ├── pnpm-lock.yaml
-└── README.md
+├── pnpm-workspace.yaml
+├── README.md
+├── next.config.ts
+├── tsconfig.json
+└── eslint.config.mjs
 ```
 
-The existing project uses a root-level `app/` directory. The structure above follows that arrangement. If the project later adopts `src/`, update the structure deliberately rather than creating duplicate application roots.
+This is the intended structure. Some directories and files may still be placeholders and must not be treated as implemented functionality.
 
-### Folder Responsibilities
+### Folder responsibilities
 
-- `app/`: Page routes, layouts, and thin API route handlers.
+- `app/`: Next.js pages, layouts, and thin API route handlers.
 - `components/`: Reusable interface components.
 - `modules/`: Business logic shared by the web application and workers.
-- `server/`: Database, queue, authentication, source connectors, and AI infrastructure.
-- `workers/`: Entry points for background agent processes.
+- `server/`: Authentication, database access, queues, event streaming, source connectors, and model routing.
+- `workers/`: Background worker process entry points.
 - `prisma/`: Database schema, migrations, and seed scripts.
 - `tests/`: Unit, integration, and end-to-end tests.
 - `scripts/`: Development and maintenance utilities.
 - `docs/`: Architecture documentation and architecture decision records.
+- `public/`: Static assets used by Next.js.
 
-## 9. Database Design
+---
 
-The database schema should be designed and approved before implementing the production data model.
+## 5. Folder Structure Initialization
 
-Expected core entities include:
+The project uses `folderstructure.mjs` to create missing directories and placeholder files.
 
-- `User` and `Role`
-- `AgentDefinition` and `AgentRun`
-- `Task` and `TaskEvent`
-- `Lead` and `Contact`
+Run the script from the project root:
+
+```powershell
+node folderstructure.mjs
+```
+
+The script should follow these rules:
+
+1. Resolve the project root from the script's own location.
+2. Create only missing directories.
+3. Create only missing placeholder files.
+4. Preserve existing file contents.
+5. Never delete or replace existing files.
+6. Never replace the existing `package.json` or pnpm lockfiles.
+7. Report created and skipped items.
+8. Fail safely when a file exists where a directory is required.
+
+The script is safe to rerun under these conditions.
+
+**Important:** Creating the folder structure does not implement the dashboard, agents, database, or background processing. Placeholder files must be replaced with real implementations during approved development phases.
+
+The existing Next.js application must remain functional throughout development.
+
+---
+
+## 6. System Architecture
+
+The application uses a modular monolith architecture in one repository, with separate background worker processes.
+
+```text
+Dot Phoenix AI
+│
+├── Next.js Dashboard
+│   ├── Overview
+│   ├── Leads
+│   ├── Agents
+│   ├── Tasks
+│   ├── Analytics
+│   └── Settings
+│
+├── Application Modules
+│   ├── Lead Management
+│   ├── Agent Management
+│   ├── Task Management
+│   ├── Verification
+│   ├── Qualification
+│   ├── Analytics
+│   └── Audit
+│
+├── Background Workers
+│   ├── Master Agent
+│   ├── Research Agent
+│   ├── Verification Agent
+│   ├── Qualification Agent
+│   └── Quality Agent
+│
+├── Infrastructure
+│   ├── PostgreSQL
+│   ├── Durable Job Queue
+│   ├── Event Streaming
+│   ├── Research Source Connectors
+│   ├── AI Model Router
+│   └── Structured Logging
+│
+└── External Services
+    ├── Authorized APIs
+    └── Permitted Public Information Sources
+```
+
+The dashboard and workers share domain logic, data models, validation rules, and task definitions.
+
+Long-running tasks must run in background workers rather than block web requests.
+
+The job queue must support durable execution, retries, failure reporting, and safe recovery after worker restarts.
+
+---
+
+## 7. AI Agent Responsibilities
+
+### 7.1 Master Agent
+
+The Master Agent coordinates the workflow.
+
+Responsibilities:
+
+- Receive or schedule research tasks.
+- Assign tasks to the appropriate agents.
+- Track task status and dependencies.
+- Coordinate research, verification, qualification, and quality checks.
+- Handle retries according to defined policies.
+- Record task events and execution outcomes.
+- Avoid duplicate task processing.
+- Escalate persistent failures for review.
+
+The Master Agent should orchestrate specialized agents rather than perform every task itself.
+
+### 7.2 Research Agent
+
+Responsibilities:
+
+- Search permitted sources for relevant companies and opportunities.
+- Identify potential project requirements and collaboration opportunities.
+- Collect publicly available business information.
+- Capture source URLs and retrieval timestamps.
+- Store supporting evidence.
+- Identify missing information.
+- Avoid fabricating companies, contacts, projects, or source references.
+
+### 7.3 Verification Agent
+
+Responsibilities:
+
+- Check company information against available evidence.
+- Verify contact information when reliable evidence is available.
+- Evaluate project and partnership claims separately.
+- Record verification status, timestamps, and reasons.
+- Identify conflicting or outdated information.
+- Flag insufficient evidence for manual review.
+
+A company must not be considered fully verified merely because one of its details is supported.
+
+### 7.4 Qualification Agent
+
+Responsibilities:
+
+- Evaluate relevance to our services.
+- Score potential projects and collaboration partnerships.
+- Assess opportunity specificity and evidence quality.
+- Consider business fit and information completeness.
+- Explain the reasons behind each score.
+- Separate confirmed facts from estimates and unknown information.
+
+### 7.5 Quality Agent
+
+Responsibilities:
+
+- Detect duplicate or inconsistent records.
+- Identify unsupported claims.
+- Check required fields and evidence completeness.
+- Flag suspicious or low-quality results.
+- Validate output against agreed quality rules.
+- Prevent unverified claims from being presented as confirmed facts.
+
+### 7.6 Shared Application Responsibilities
+
+Lead storage, CRM functions, analytics, reporting, and audit history should initially be implemented as normal application modules.
+
+They do not need separate AI agents unless a future requirement justifies them.
+
+---
+
+## 8. Agent Monitoring Dashboard
+
+The dashboard must show actual persisted execution information, not hardcoded agent statuses.
+
+### Agent status
+
+Supported statuses should include:
+
+- `idle`
+- `working`
+- `stalled`
+- `failed`
+- `offline`
+
+Status transitions must be defined and based on actual execution events and heartbeat data.
+
+### Agent details
+
+The dashboard should display:
+
+- Agent name and role.
+- Current task.
+- Current status.
+- Task progress.
+- Last heartbeat.
+- Last successful execution.
+- Start time and completion time.
+- Execution duration.
+- Recent logs and events.
+- Errors and warnings.
+- Retry count.
+- Output summary.
+- Related leads and evidence.
+- AI provider and model.
+- Token usage and estimated cost when available.
+
+### Real-time monitoring
+
+Use persisted task events and Server-Sent Events to update the dashboard.
+
+The system must also support refreshing the page without losing task history or execution state.
+
+Agent heartbeats must be generated by the actual worker process. A stale heartbeat should be detectable and must not be displayed as a healthy agent.
+
+---
+
+## 9. Lead Discovery and Evidence
+
+Every lead must have a traceable information history.
+
+### Evidence fields
+
+Evidence records should support:
+
+- Source URL.
+- Source type.
+- Retrieval timestamp.
+- Relevant supporting text or extracted facts.
+- Associated company, contact, or opportunity.
+- Verification status.
+- Verification timestamp, when applicable.
+- Rejection or uncertainty reason.
+
+Where appropriate, retain the source's publication date separately from the retrieval timestamp.
+
+### Separate verification statuses
+
+The system must independently track:
+
+1. **Company verification:** Is the company information supported?
+2. **Contact verification:** Is the contact information supported?
+3. **Opportunity verification:** Is the business opportunity supported?
+
+A verified company does not automatically imply a verified contact or opportunity.
+
+### Source requirements
+
+- Prefer authorized APIs and permitted public information sources.
+- Respect source terms, rate limits, privacy requirements, and applicable laws.
+- Record provenance for important claims.
+- Avoid collecting unnecessary personal information.
+- Never invent evidence or claim a source was checked when it was not.
+
+---
+
+## 10. Deduplication and Lead Qualification
+
+### Deduplication
+
+The system should detect possible duplicates using suitable identifiers and matching rules.
+
+Consider:
+
+- Company domain and official website.
+- Normalized company name.
+- Contact email when legitimately available.
+- External source identifiers.
+- Opportunity title and supporting source.
+- Existing lead records.
+
+Potential matches should be reviewed when the system cannot confidently establish equivalence.
+
+Repeated research must not create duplicate leads unnecessarily.
+
+### Explainable scoring
+
+Each lead score should be based on documented criteria, such as:
+
+- Relevance to our services.
+- Evidence quality.
+- Opportunity specificity.
+- Business fit.
+- Information completeness.
+- Evidence recency.
+
+The system must explain the score and preserve the underlying evidence.
+
+Missing information must not be treated as a positive signal or confirmed fact.
+
+---
+
+## 11. Database Design
+
+The production database model must be reviewed and approved before implementing migrations.
+
+Expected entities include:
+
+- `User`
+- `Role`
+- `UserRole`
+- `AgentDefinition`
+- `AgentRun`
+- `Task`
+- `TaskEvent`
+- `Lead`
+- `Contact`
 - `Evidence`
 - `VerificationResult`
 - `Opportunity`
@@ -301,94 +481,151 @@ Expected core entities include:
 - `AuditEvent`
 - `SystemSetting`
 
-Relationships, indexes, uniqueness constraints, status enums, and deletion policies must be documented before migrations are generated.
+The final design must define:
 
-## 10. Security and Reliability
+- Relationships and foreign keys.
+- Unique constraints and indexes.
+- Status enums and lifecycle transitions.
+- Data retention policies.
+- Audit requirements.
+- Safe deletion and archival rules.
+- Idempotency and duplicate prevention.
+- Appropriate access controls.
 
-- Validate all environment variables.
+Prisma is the ORM; PostgreSQL is the database.
+
+---
+
+## 12. AI Model Routing and Cost Management
+
+The platform should use a provider-independent model adapter so that supported models can be changed without rewriting the entire application.
+
+Responsibilities:
+
+- Support approved model providers.
+- Allow task-specific model selection.
+- Configure timeouts and retries.
+- Record provider and model identifiers.
+- Record token usage when returned by the provider.
+- Estimate costs using applicable pricing information when available.
+- Distinguish actual provider-reported usage from estimates.
+- Handle provider errors and rate limits.
+- Avoid exposing API keys in logs or dashboard responses.
+
+Free models may be used where they meet the task's quality and reliability requirements. Paid models should be used when their benefits justify their costs.
+
+The application must not assume that every provider exposes identical usage metrics or pricing information.
+
+---
+
+## 13. Security and Reliability
+
+- Validate environment variables at application startup.
 - Keep API keys and credentials out of source control.
+- Store real secrets in local environment configuration or an appropriate secret manager.
 - Use authentication and role-based authorization.
-- Validate and sanitize incoming data.
+- Validate incoming requests and user-controlled data.
 - Record important administrative actions.
 - Use structured logs and correlation IDs.
-- Apply timeouts, retries, and failure handling to background jobs.
-- Make jobs safe to retry without creating duplicate records.
-- Respect data-source terms, rate limits, privacy requirements, and applicable laws.
-- Restrict access to sensitive contact and account information.
-- Never claim a task succeeded unless its result has been persisted and verified.
+- Apply timeouts and bounded retries to external calls.
+- Make background jobs safe to retry.
+- Persist important state transitions.
+- Detect stalled jobs and worker failures.
+- Protect sensitive business and contact information.
+- Respect data-source policies and applicable laws.
+- Do not report success until the result has been persisted and validated.
 
-## 11. Phase 1 Scope
+### Environment configuration
+
+`.env.example` is a template containing placeholder values.
+
+Never place real credentials in `.env.example`, source files, committed configuration, or logs.
+
+---
+
+## 14. Phase 1 Scope
 
 ### Included
 
-- Dashboard foundation
-- Authentication and access control
-- Database and migrations
-- Agent and task monitoring
-- Background job queue
-- Research source connectors
-- Lead discovery
-- Evidence collection
-- Verification and qualification
-- Deduplication and quality checks
-- Lead review and management
-- Analytics and audit history
-- AI usage and cost tracking
+- Existing Next.js project foundation.
+- Dashboard layout and navigation.
+- Authentication and authorization.
+- PostgreSQL and Prisma integration.
+- Database migrations.
+- Durable background queue.
+- Agent lifecycle and task monitoring.
+- Research source connectors.
+- Lead discovery and evidence collection.
+- Company, contact, and opportunity verification.
+- Opportunity qualification and explainable scoring.
+- Deduplication and quality checks.
+- Manual lead review and management.
+- Analytics and audit history.
+- AI model usage and cost tracking.
 
 ### Excluded
 
-- Automatic email sending
-- Automated outreach campaigns
-- Automatic follow-up emails
-- Email account integrations
-- Autonomous contact of companies
+- Automatic email sending.
+- Automated outreach campaigns.
+- Automatic follow-up emails.
+- Email account integrations.
+- Autonomous company contact.
 
-**All outreach remains manual in Phase 1.**
+**All outreach remains manual during Phase 1.**
 
-## 12. Development Roadmap
+The architecture may allow future extensions, but future capabilities must not introduce automated outreach into the initial release.
+
+---
+
+## 15. Development Roadmap
 
 ### Phase 1 — Foundation
 
-- Inspect the existing Next.js project.
+- Inspect the existing project and its configuration.
 - Confirm architecture and compatible dependency versions.
-- Establish coding standards, linting, and TypeScript checks.
+- Preserve existing Next.js and pnpm setup.
+- Establish coding standards and TypeScript checks.
 - Configure the MUI theme and dashboard shell.
-- Document the architecture.
+- Document architecture decisions.
 
 ### Phase 2 — Database and Security
 
-- Finalize the entity relationship design.
+- Approve the entity relationship design.
 - Configure PostgreSQL and Prisma.
 - Implement authentication and authorization.
 - Create and test database migrations.
 
 ### Phase 3 — Queue and Workers
 
-- Implement durable task processing.
+- Implement durable background task processing.
 - Add agent registration and lifecycle management.
-- Implement heartbeats, retries, and persisted task events.
+- Implement heartbeats, retries, and persisted events.
+- Handle worker restarts and task recovery.
 
 ### Phase 4 — Monitoring Dashboard
 
-- Display live agent and task status.
-- Add logs, progress, error details, and task history.
-- Implement real-time updates using SSE.
+- Display actual agent and task statuses.
+- Add logs, progress, and failure details.
+- Implement live updates using SSE.
+- Provide persisted task history.
 
 ### Phase 5 — Lead Discovery
 
 - Implement authorized source connectors.
-- Collect and persist lead evidence.
-- Add deduplication and source provenance.
+- Collect and persist evidence.
+- Add source provenance and deduplication.
+- Store research results.
 
 ### Phase 6 — Verification and Qualification
 
-- Verify company, contact, and opportunity information separately.
-- Add explainable scoring.
+- Verify company, contact, and opportunity data separately.
+- Add explainable qualification scores.
 - Implement quality checks and rejection reasons.
+- Support manual review of uncertain results.
 
 ### Phase 7 — Analytics and Controls
 
-- Add lead analytics and operational reports.
+- Add lead and operational analytics.
 - Track model usage and estimated costs.
 - Add audit records and administrative controls.
 
@@ -396,37 +633,81 @@ Relationships, indexes, uniqueness constraints, status enums, and deletion polic
 
 - Run unit, integration, and end-to-end tests.
 - Test worker restarts and job retries.
-- Review security, permissions, and error handling.
-- Validate production builds and deployment configuration.
+- Review security and permissions.
+- Validate production builds.
+- Document deployment and operational procedures.
 
-Each phase must be reviewed and approved before proceeding to the next.
-
-## 13. Development Rules
-
-1. Inspect existing files before modifying them.
-2. Never overwrite or delete existing project files without approval.
-3. Use pnpm consistently.
-4. Keep API handlers thin and domain logic in modules.
-5. Keep long-running tasks in background workers.
-6. Use TypeScript with strict type checking.
-7. Write tests for important business rules and failure scenarios.
-8. Run linting, type checking, relevant tests, and production builds at appropriate checkpoints.
-9. Document significant architecture decisions.
-10. Do not introduce new infrastructure or dependencies without a clear reason.
-11. Do not fabricate leads, contacts, sources, verification results, or model usage.
-12. Do not implement automated outreach in Phase 1.
-
-## 14. Current Project Status
-
-The repository has an existing Next.js and pnpm setup. The folder-structure script adds missing directories and placeholder files while preserving existing files.
-
-The complete lead-generation platform is not implemented merely by creating the folder structure.
-
-Before building the application, review and approve the architecture, dependency versions, database design, security model, and phased implementation plan.
+Each phase must be completed, tested, and reviewed before proceeding to the next.
 
 ---
 
-**Project:** Dot Phoenix AI  
-**Company:** Dot Phoenix Solutions  
-**Primary objective:** Discover and qualify genuine global business opportunities and collaboration leads.  
-**Initial
+## 16. Development Rules
+
+1. Inspect existing files before making changes.
+2. Never overwrite or delete existing project content without approval.
+3. Use pnpm consistently.
+4. Preserve the existing root-level `app/` directory.
+5. Do not create a duplicate Next.js application under `src/`.
+6. Keep API route handlers thin.
+7. Place reusable business logic in domain modules.
+8. Keep long-running tasks in background workers.
+9. Use strict TypeScript checks.
+10. Test important business rules and failure scenarios.
+11. Run linting, type checking, relevant tests, and production builds at appropriate checkpoints.
+12. Document significant architecture decisions.
+13. Avoid unnecessary dependencies and infrastructure.
+14. Never fabricate leads, evidence, verification results, or usage metrics.
+15. Keep automated outreach out of Phase 1.
+16. Obtain approval before implementing major architectural changes.
+17. Implement one complete, tested phase at a time.
+18. Keep documentation aligned with actual implementation status.
+
+---
+
+## 17. Current Project Status
+
+The repository already has a Next.js and pnpm setup. The project uses a root-level `app/` directory and contains existing configuration files and installed dependencies.
+
+The `folderstructure.mjs` script is intended to add missing directories and placeholder files while preserving existing content.
+
+The following items must be treated as separate implementation tasks until verified as complete:
+
+- Dashboard functionality.
+- Database configuration and migrations.
+- Authentication and authorization.
+- Background job processing.
+- AI agent execution.
+- Lead research and verification.
+- Real-time monitoring.
+- Analytics and cost tracking.
+- Automated tests.
+
+Creating folders and placeholder files does not mean these features are implemented.
+
+Before substantial development begins, approve the architecture, dependency versions, database design, security model, and phased implementation plan.
+
+---
+
+## 18. Project Summary
+
+**Project:** Dot Phoenix AI
+
+**Company:** Dot Phoenix Solutions
+
+**Repository:** `agent-dotphoenix`
+
+**Framework:** Next.js with React and TypeScript
+
+**Package manager:** pnpm
+
+**Database target:** PostgreSQL
+
+**UI library:** Material UI (MUI)
+
+**Architecture:** Modular monolith with separate background workers
+
+**Primary objective:** Discover, verify, and qualify genuine global project opportunities and technology collaboration leads.
+
+**Initial release:** Lead generation, evidence collection, verification, qualification, agent monitoring, analytics, and manual lead management.
+
+**Non-negotiable requirement:** Preserve existing project files and keep all company outreach manual in Phase 1.
