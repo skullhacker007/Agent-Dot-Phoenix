@@ -69,14 +69,6 @@ type WeatherResponse = {
   };
 };
 
-type LocationResponse = {
-  ip?: string;
-  city?: string;
-  region?: string;
-  latitude?: number;
-  longitude?: number;
-};
-
 const AGENTS: Agent[] = [
   {
     id: "jarvis",
@@ -395,10 +387,9 @@ export default function RobotAvatar({ onAgentSelect }: RobotAvatarProps) {
 /* Compact header: icon and information stay on the same line. */
 function NaviHeader() {
   const [now, setNow] = useState<Date | null>(null);
-  const [location, setLocation] = useState("DETECTING LOCATION...");
+  const location = "TIRUPATI";
   const [temperature, setTemperature] = useState("--°C");
   const [weatherDescription, setWeatherDescription] = useState("WEATHER");
-  const [publicIp, setPublicIp] = useState("DETECTING IP...");
 
   // Local time and date update automatically.
   useEffect(() => {
@@ -411,46 +402,16 @@ function NaviHeader() {
     return () => window.clearInterval(timer);
   }, []);
 
-  // IP-based location is approximate and doesn't prompt for GPS.
+  // Fetch weather for Tirupati, Andhra Pradesh.
   useEffect(() => {
     const controller = new AbortController();
 
-    async function loadLocationAndWeather() {
+    async function loadWeather() {
       try {
-        const response = await fetch("https://ipapi.co/json/", {
-          signal: controller.signal,
-          headers: { Accept: "application/json" },
-        });
-
-        if (!response.ok) {
-          throw new Error("Location lookup failed");
-        }
-
-        const data: LocationResponse = await response.json();
-
-        if (controller.signal.aborted) return;
-
-        setPublicIp(data.ip || "IP UNAVAILABLE");
-
-        const place = [data.city, data.region]
-          .filter(Boolean)
-          .join(", ")
-          .toUpperCase();
-
-        setLocation(place || "LOCATION UNAVAILABLE");
-
-        if (
-          typeof data.latitude !== "number" ||
-          typeof data.longitude !== "number"
-        ) {
-          setWeatherDescription("WEATHER UNAVAILABLE");
-          return;
-        }
-
         const weatherUrl =
           "https://api.open-meteo.com/v1/forecast" +
-          `?latitude=${data.latitude}` +
-          `&longitude=${data.longitude}` +
+          "?latitude=13.6288" +
+          "&longitude=79.4192" +
           "&current=temperature_2m,weather_code" +
           "&temperature_unit=celsius";
 
@@ -482,14 +443,12 @@ function NaviHeader() {
       } catch {
         if (controller.signal.aborted) return;
 
-        setLocation("LOCATION UNAVAILABLE");
         setTemperature("--°C");
         setWeatherDescription("WEATHER UNAVAILABLE");
-        setPublicIp("IP UNAVAILABLE");
       }
     }
 
-    void loadLocationAndWeather();
+    void loadWeather();
 
     return () => controller.abort();
   }, []);
