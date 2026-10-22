@@ -73,7 +73,7 @@ const AGENTS: Agent[] = [
   {
     id: "jarvis",
     name: "J.A.R.V.I.S",
-    role: "Strategy & orchestration",
+    role: "Strategy & Intelligence",
     status: "Active",
     task: "Awaiting runtime task data",
     duration: "—",
@@ -83,7 +83,7 @@ const AGENTS: Agent[] = [
   {
     id: "friday",
     name: "F.R.I.D.A.Y",
-    role: "Assistance & execution",
+    role: "Client Acquisition & Relations",
     status: "Ready",
     task: "No task reported",
     duration: "—",
@@ -93,7 +93,7 @@ const AGENTS: Agent[] = [
   {
     id: "ultron",
     name: "Ultron",
-    role: "Automation & operations",
+    role: "Engineering & Automation",
     status: "Idle",
     task: "No task reported",
     duration: "—",
@@ -103,7 +103,7 @@ const AGENTS: Agent[] = [
   {
     id: "vision",
     name: "Vision",
-    role: "Monitoring & analysis",
+    role: "Operations, Quality & Monitoring",
     status: "Watching",
     task: "Monitoring state unavailable",
     duration: "—",
@@ -338,7 +338,7 @@ export default function RobotAvatar({ onAgentSelect }: RobotAvatarProps) {
       </div>
 
       <div className="navi-chest-label" aria-label="NAVI Master Agent">
-        NAVI
+        N A V I
       </div>
 
       <div className="robot-vignette" aria-hidden="true" />

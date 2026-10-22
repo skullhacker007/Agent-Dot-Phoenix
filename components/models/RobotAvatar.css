@@ -21,6 +21,13 @@
   --navi-amber: #fbbf24;
 
   --navi-radius: 16px;
+
+  /* Fonts (CSS variables come from next/font in app/layout.tsx) */
+  --navi-font-heading:
+    var(--font-space-grotesk), "Space Grotesk", system-ui, sans-serif;
+  --navi-font-body: var(--font-inter), "Inter", system-ui, sans-serif;
+  --navi-font-mono:
+    var(--font-jetbrains-mono), "JetBrains Mono", ui-monospace, monospace;
 }
 
 /* =========================================================
@@ -42,7 +49,7 @@
   background: var(--navi-bg);
   color: var(--navi-text);
 
-  font-family: "Space Grotesk", Arial, Helvetica, sans-serif;
+  font-family: var(--navi-font-body);
   font-size: 14px;
 
   -webkit-font-smoothing: antialiased;
@@ -204,7 +211,7 @@
 
 /* =========================================================
    3. NAVI TELEMETRY HEADER
-   Icon beside data, all three groups on one line
+   Icon beside data, both groups on one line
 ========================================================= */
 
 .navi-header {
@@ -217,7 +224,7 @@
   width: min(640px, calc(100vw - 60px));
 
   color: var(--navi-text);
-  font-family: "Space Grotesk", Arial, sans-serif;
+  font-family: var(--navi-font-heading);
 
   pointer-events: none;
   user-select: none;
@@ -279,9 +286,9 @@
   overflow: hidden;
 
   color: var(--navi-text);
-
+  font-family: var(--navi-font-heading);
   font-size: 17px;
-  font-weight: 500;
+  font-weight: 600;
   line-height: 1.2;
 
   font-variant-numeric: tabular-nums;
@@ -295,12 +302,11 @@
   overflow: hidden;
 
   color: var(--navi-muted);
-
-  font-family: "JetBrains Mono", monospace;
-  font-size: 10px;
+  font-family: var(--navi-font-mono);
+  font-size: 11px;
   font-weight: 500;
   line-height: 1.4;
-  letter-spacing: 0.025em;
+  letter-spacing: 0.04em;
 
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -308,17 +314,12 @@
 
 .navi-header-clock .navi-header-primary {
   font-size: 21px;
-  letter-spacing: -0.035em;
+  letter-spacing: -0.02em;
 }
 
 .navi-header-weather .navi-header-primary {
   color: var(--navi-cyan);
   font-size: 19px;
-}
-
-.navi-header-ip {
-  max-width: 150px;
-  font-size: 13px;
 }
 
 .navi-header-divider {
@@ -337,66 +338,7 @@
 }
 
 /* =========================================================
-   4. SYSTEM STATUS — TOP RIGHT
-========================================================= */
-
-.navi-system-status {
-  position: absolute;
-  z-index: 8;
-
-  top: 27px;
-  right: 30px;
-
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 10px;
-
-  color: var(--navi-text);
-
-  font-family: "JetBrains Mono", monospace;
-  font-size: 13px;
-  font-weight: 600;
-  letter-spacing: 0.025em;
-
-  pointer-events: none;
-}
-
-.navi-status-dot {
-  width: 8px;
-  height: 8px;
-  flex: 0 0 auto;
-
-  border-radius: 50%;
-  background: var(--navi-green);
-
-  box-shadow:
-    0 0 8px rgba(52, 211, 153, 0.72),
-    0 0 16px rgba(52, 211, 153, 0.25);
-
-  transition:
-    background 250ms ease,
-    box-shadow 250ms ease;
-}
-
-.navi-status-dot.listening {
-  background: var(--navi-cyan);
-
-  box-shadow:
-    0 0 9px rgba(34, 211, 238, 0.9),
-    0 0 20px rgba(34, 211, 238, 0.4);
-
-  animation: navi-status-pulse 0.9s ease-in-out infinite alternate;
-}
-
-.navi-status-dot.speaking {
-  background: var(--navi-green);
-
-  animation: navi-status-pulse 0.65s ease-in-out infinite alternate;
-}
-
-/* =========================================================
-   5. AGENT LAYOUT
+   4. AGENT LAYOUT
 ========================================================= */
 
 .navi-agent-layout {
@@ -440,7 +382,7 @@
 }
 
 /* =========================================================
-   6. AGENT CARDS
+   5. AGENT CARDS
 ========================================================= */
 
 .navi-agent-card {
@@ -449,9 +391,9 @@
   display: flex;
 
   width: 100%;
-  height: 190px;
-  min-height: 190px;
-  flex: 0 0 190px;
+  height: 196px;
+  min-height: 196px;
+  flex: 0 0 196px;
 
   flex-direction: column;
 
@@ -565,7 +507,7 @@
   color: #c0d0dc;
 }
 
-/* Agent status */
+/* Agent status: Active / Ready / Idle / Watching */
 
 .navi-agent-status {
   display: inline-flex;
@@ -575,8 +517,11 @@
 
   color: var(--navi-muted);
 
-  font-size: 12px;
+  font-family: var(--navi-font-mono);
+  font-size: 11px;
   font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
   white-space: nowrap;
 }
 
@@ -613,10 +558,11 @@
 
   color: var(--navi-text);
 
-  font-size: 16px;
+  font-family: var(--navi-font-heading);
+  font-size: 18px;
   font-weight: 700;
   line-height: 1.3;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.03em;
 }
 
 /* Agent role */
@@ -624,8 +570,9 @@
 .navi-agent-role {
   margin-top: 3px;
 
-  color: var(--navi-muted);
+  color: var(--navi-subtle);
 
+  font-family: var(--navi-font-body);
   font-size: 13px;
   font-weight: 400;
   line-height: 1.4;
@@ -644,20 +591,23 @@
 .navi-metric-label {
   color: var(--navi-subtle);
 
-  font-family: "JetBrains Mono", monospace;
-  font-size: 10px;
-  font-weight: 600;
+  font-family: var(--navi-font-mono);
+  font-size: 11px;
+  font-weight: 500;
   line-height: 1.4;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .navi-task-value {
   display: block;
   overflow-wrap: anywhere;
 
-  color: #dce7ef;
+  color: var(--navi-text);
 
+  font-family: var(--navi-font-body);
   font-size: 13px;
+  font-weight: 500;
   line-height: 1.4;
 }
 
@@ -717,16 +667,18 @@
 
   color: var(--navi-text);
 
-  font-size: 13px;
-  font-weight: 600;
+  font-family: var(--navi-font-mono);
+  font-size: 14px;
+  font-weight: 500;
   line-height: 1.35;
+  font-variant-numeric: tabular-nums;
 
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 /* =========================================================
-   7. CHEST REACTOR AND NAVI LABEL
+   6. CHEST REACTOR AND NAVI LABEL
 ========================================================= */
 
 .navi-chest-label {
@@ -740,7 +692,7 @@
 
   color: rgba(210, 246, 255, 0.88);
 
-  font-family: "Space Grotesk", Arial, sans-serif;
+  font-family: var(--navi-font-heading);
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.12em;
@@ -830,52 +782,8 @@
 }
 
 /* =========================================================
-   8. VOICE SHORTCUT AND ACCESSIBLE STATUS
+   7. ACCESSIBLE STATUS (screen readers only)
 ========================================================= */
-
-.navi-voice-shortcut {
-  position: absolute;
-  z-index: 8;
-
-  right: 30px;
-  bottom: 18px;
-
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 6px;
-
-  color: var(--navi-muted);
-  font-size: 12px;
-
-  pointer-events: none;
-}
-
-.navi-voice-indicator {
-  width: 6px;
-  height: 6px;
-  flex: 0 0 auto;
-
-  margin-right: 4px;
-
-  border-radius: 50%;
-  background: var(--navi-cyan);
-  opacity: 0.8;
-}
-
-.navi-voice-shortcut kbd {
-  padding: 3px 6px;
-
-  border: 1px solid rgba(168, 186, 201, 0.22);
-  border-radius: 5px;
-
-  background: rgba(6, 17, 28, 0.76);
-  color: #d4e0e8;
-
-  font-family: "JetBrains Mono", monospace;
-  font-size: 11px;
-  line-height: 1.3;
-}
 
 .navi-sr-only {
   position: absolute !important;
@@ -892,7 +800,7 @@
 }
 
 /* =========================================================
-   9. LOADING STATE
+   8. LOADING STATE
 ========================================================= */
 
 .robot-loading {
@@ -905,13 +813,13 @@
   background: var(--navi-bg);
   color: var(--navi-cyan);
 
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--navi-font-mono);
   font-size: 13px;
-  letter-spacing: 0.025em;
+  letter-spacing: 0.06em;
 }
 
 /* =========================================================
-   10. ANIMATIONS
+   9. ANIMATIONS
 ========================================================= */
 
 @keyframes navi-ambient {
@@ -923,16 +831,6 @@
   to {
     opacity: 0.88;
     scale: 1.035;
-  }
-}
-
-@keyframes navi-status-pulse {
-  from {
-    opacity: 0.58;
-  }
-
-  to {
-    opacity: 1;
   }
 }
 
@@ -948,7 +846,7 @@
 }
 
 /* =========================================================
-   11. TABLET
+   10. TABLET
 ========================================================= */
 
 @media (max-width: 1050px) and (min-width: 701px) {
@@ -980,12 +878,7 @@
   }
 
   .navi-header-secondary {
-    font-size: 9px;
-  }
-
-  .navi-header-ip {
-    max-width: 115px;
-    font-size: 11px;
+    font-size: 10px;
   }
 
   .navi-agent-layout {
@@ -999,15 +892,15 @@
   }
 
   .navi-agent-card {
-    height: 185px;
-    min-height: 185px;
-    flex-basis: 185px;
+    height: 190px;
+    min-height: 190px;
+    flex-basis: 190px;
 
     padding: 10px 12px;
   }
 
   .navi-agent-name {
-    font-size: 15px;
+    font-size: 16px;
   }
 
   .navi-agent-role,
@@ -1020,16 +913,16 @@
   }
 
   .navi-agent-metrics strong {
-    font-size: 12px;
+    font-size: 13px;
   }
 
   .navi-metric-label {
-    font-size: 9px;
+    font-size: 10px;
   }
 }
 
 /* =========================================================
-   12. MOBILE
+   11. MOBILE
 ========================================================= */
 
 @media (max-width: 700px) {
@@ -1070,25 +963,12 @@
   }
 
   .navi-header-secondary {
-    font-size: 8px;
+    font-size: 9px;
     letter-spacing: 0;
-  }
-
-  .navi-header-ip {
-    max-width: 84px;
-    font-size: 10px;
   }
 
   .navi-header-divider {
     height: 28px;
-  }
-
-  .navi-system-status {
-    top: 75px;
-    right: 14px;
-
-    gap: 7px;
-    font-size: 11px;
   }
 
   .robot-glow {
@@ -1169,17 +1049,6 @@
     white-space: nowrap;
   }
 
-  .navi-voice-shortcut {
-    right: 0;
-    bottom: max(100px, calc(90px + env(safe-area-inset-bottom)));
-    left: 0;
-
-    justify-content: center;
-    gap: 5px;
-
-    font-size: 11px;
-  }
-
   .navi-chest-label {
     top: calc(47% - 28px);
     font-size: 10px;
@@ -1198,7 +1067,7 @@
 }
 
 /* =========================================================
-   13. VERY NARROW PHONES
+   12. VERY NARROW PHONES
 ========================================================= */
 
 @media (max-width: 380px) {
@@ -1229,12 +1098,7 @@
   }
 
   .navi-header-secondary {
-    font-size: 7px;
-  }
-
-  .navi-header-ip {
-    max-width: 68px;
-    font-size: 9px;
+    font-size: 8px;
   }
 
   .navi-agent-layout {
@@ -1250,18 +1114,10 @@
   .navi-agent-name {
     font-size: 9px;
   }
-
-  .navi-system-status {
-    font-size: 11px;
-  }
-
-  .navi-voice-shortcut {
-    font-size: 10px;
-  }
 }
 
 /* =========================================================
-   14. SHORT DESKTOP VIEWPORTS
+   13. SHORT DESKTOP VIEWPORTS
 ========================================================= */
 
 @media (max-height: 650px) and (min-width: 701px) {
@@ -1274,9 +1130,9 @@
   }
 
   .navi-agent-card {
-    height: 175px;
-    min-height: 175px;
-    flex-basis: 175px;
+    height: 182px;
+    min-height: 182px;
+    flex-basis: 182px;
 
     padding: 9px 11px;
   }
@@ -1288,14 +1144,10 @@
   .navi-agent-metrics {
     padding-top: 6px;
   }
-
-  .navi-voice-shortcut {
-    bottom: 10px;
-  }
 }
 
 /* =========================================================
-   15. ACCESSIBILITY
+   14. ACCESSIBILITY
 ========================================================= */
 
 @media (prefers-reduced-motion: reduce) {

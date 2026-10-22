@@ -1,26 +1,54 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #050b14;
+  --foreground: #e6f1ff;
+  --accent: #22d3ee;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+  --color-accent: var(--accent);
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --font-heading: var(--font-space-grotesk);
+  --font-sans: var(--font-inter);
+  --font-mono: var(--font-jetbrains-mono);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-inter), system-ui, sans-serif;
+  font-weight: 400;
+}
+
+h1,
+h2,
+h3,
+.agent-name {
+  font-family: var(--font-space-grotesk), system-ui, sans-serif;
+  font-weight: 600;
+}
+
+button,
+nav {
+  font-family: var(--font-inter), system-ui, sans-serif;
+  font-weight: 500;
+}
+
+.label,
+.log {
+  font-family: var(--font-jetbrains-mono), monospace;
+  font-weight: 400;
+  font-size: 0.65rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.metric,
+.timestamp {
+  font-family: var(--font-jetbrains-mono), monospace;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
 }

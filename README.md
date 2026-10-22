@@ -52,20 +52,20 @@ The lead discovery workflow should be configurable so that new service categorie
 
 ## 3. Technology Stack
 
-| Technology | Responsibility |
-|---|---|
-| Next.js App Router | Web application and dashboard |
-| React | User interface |
-| TypeScript | Type safety |
-| pnpm | Package management |
-| Material UI (MUI) | UI components and styling |
-| Node.js | Server-side execution and background workers |
-| PostgreSQL | Persistent relational database |
-| Prisma ORM | Database access and migrations |
-| PostgreSQL-backed job queue | Durable background job processing |
-| Server-Sent Events (SSE) | Live dashboard updates |
-| AI model adapters | Integration with supported AI providers |
-| Docker Compose | Local PostgreSQL development environment |
+| Technology                  | Responsibility                               |
+| --------------------------- | -------------------------------------------- |
+| Next.js App Router          | Web application and dashboard                |
+| React                       | User interface                               |
+| TypeScript                  | Type safety                                  |
+| pnpm                        | Package management                           |
+| Material UI (MUI)           | UI components and styling                    |
+| Node.js                     | Server-side execution and background workers |
+| PostgreSQL                  | Persistent relational database               |
+| Prisma ORM                  | Database access and migrations               |
+| PostgreSQL-backed job queue | Durable background job processing            |
+| Server-Sent Events (SSE)    | Live dashboard updates                       |
+| AI model adapters           | Integration with supported AI providers      |
+| Docker Compose              | Local PostgreSQL development environment     |
 
 ### Technology rules
 
@@ -91,78 +91,164 @@ The target structure is:
 
 ```text
 agent-dotphoenix/
-├── app/
-│   ├── (dashboard)/
-│   │   ├── overview/
-│   │   ├── leads/
-│   │   ├── agents/
-│   │   ├── tasks/
-│   │   ├── analytics/
-│   │   └── settings/
-│   ├── api/
-│   ├── favicon.ico
-│   ├── globals.css
-│   ├── layout.tsx
-│   └── page.tsx
+│   .env.example
+│   .gitignore
+│   AGENTS.md
+│   CLAUDE.md
+│   eslint.config.mjs
+│   folderstructure.mjs
+│   next-env.d.ts
+│   next.config.ts
+│   package.json
+│   pnpm-lock.yaml
+│   pnpm-workspace.yaml
+│   postcss.config.mjs
+│   README.md
+│   tsconfig.json
+│   tsconfig.tsbuildinfo
 │
-├── components/
-│   ├── ui/
-│   ├── layout/
-│   ├── data-tables/
-│   └── charts/
+├───.ag-ctl
+│       ag-ctl.sh
 │
-├── modules/
-│   ├── leads/
-│   ├── agents/
-│   ├── tasks/
-│   ├── analytics/
-│   └── audit/
+├───app
+│   │   favicon.ico
+│   │   globals.css
+│   │   layout.tsx
+│   │   page.tsx
+│   │
+│   ├───(dashboard)
+│   │   ├───agents
+│   │   │       .gitkeep
+│   │   │
+│   │   ├───analytics
+│   │   │       .gitkeep
+│   │   │
+│   │   ├───leads
+│   │   │       .gitkeep
+│   │   │
+│   │   ├───overview
+│   │   │       .gitkeep
+│   │   │
+│   │   ├───settings
+│   │   │       .gitkeep
+│   │   │
+│   │   └───tasks
+│   │           .gitkeep
+│   │
+│   └───api
+│           .gitkeep
 │
-├── server/
-│   ├── auth/
-│   ├── database/
-│   ├── queue/
-│   ├── events/
-│   ├── sources/
-│   └── model-router/
+├───components
+│   ├───charts
+│   │       .gitkeep
+│   │
+│   ├───data-tables
+│   │       .gitkeep
+│   │
+│   ├───layout
+│   │       .gitkeep
+│   │
+│   ├───models
+│   │       RobotAvatar.css
+│   │       RobotAvatar.tsx
+│   │
+│   └───ui
+│           .gitkeep
 │
-├── theme/
-├── lib/
+├───docs
+│   │   ARCHITECTURE.md
+│   │
+│   └───adr
+│           .gitkeep
 │
-├── workers/
-│   ├── master/
-│   ├── research/
-│   ├── verification/
-│   ├── qualification/
-│   └── quality/
+├───lib
+│       .gitkeep
 │
-├── prisma/
-│   ├── migrations/
-│   ├── schema.prisma
-│   └── seed.ts
+├───modules
+│   ├───agents
+│   │       .gitkeep
+│   │
+│   ├───analytics
+│   │       .gitkeep
+│   │
+│   ├───audit
+│   │       .gitkeep
+│   │
+│   ├───leads
+│   │       .gitkeep
+│   │
+│   └───tasks
+│           .gitkeep
 │
-├── tests/
-│   ├── unit/
-│   ├── integration/
-│   └── e2e/
+├───prisma
+│   │   schema.prisma
+│   │   seed.ts
+│   │
+│   └───migrations
+│           .gitkeep
 │
-├── scripts/
-├── docs/
-│   ├── adr/
-│   └── ARCHITECTURE.md
+├───public
+│       file.svg
+│       globe.svg
+│       next.svg
+│       robo.spline
+│       scene.splinecode
+│       vercel.svg
+│       window.svg
 │
-├── public/
-├── .env.example
-├── .gitignore
-├── docker-compose.yml
-├── folderstructure.mjs
-├── package.json
-├── pnpm-lock.yaml
-├── pnpm-workspace.yaml
-├── README.md
-├── next.config.ts
-├── tsconfig.json
-└── eslint.config.mjs
+├───scripts
+│       .gitkeep
+│
+├───server
+│   ├───auth
+│   │       .gitkeep
+│   │
+│   ├───database
+│   │       .gitkeep
+│   │
+│   ├───events
+│   │       .gitkeep
+│   │
+│   ├───model-router
+│   │       .gitkeep
+│   │
+│   ├───queue
+│   │       .gitkeep
+│   │
+│   └───sources
+│           .gitkeep
+│
+├───tests
+│   ├───e2e
+│   │       .gitkeep
+│   │
+│   ├───integration
+│   │       .gitkeep
+│   │
+│   └───unit
+│           .gitkeep
+│
+├───theme
+│       .gitkeep
+│
+└───workers
+    ├───master
+    │       README.md
+    │
+    ├───qualification
+    │       README.md
+    │
+    ├───quality
+    │       README.md
+    │
+    ├───research
+    │       README.md
+    │
+    └───verification
+            README.md
+
+
+C:\Users\NAVEEN\Desktop\project\agent-dotphoenix>
 ```
 
 This is the intended structure. Some directories and files may still be placeholders and must not be treated as implemented functionality.
