@@ -1,1 +1,103 @@
-// Prisma schema will be added after database design approval.
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum TeamId {
+  JARVIS
+  FRIDAY
+  ULTRON
+  VISION
+}
+
+enum AgentRuntimeStatus {
+  IDLE
+  WORKING
+  FAILED
+}
+
+enum AgentExecutionStatus {
+  RUNNING
+  SUCCEEDED
+  FAILED
+}
+
+enum AgentEventType {
+  AGENT_CREATED
+  HEARTBEAT
+  RUN_STARTED
+  RUN_PROGRESS
+  RUN_SUCCEEDED
+  RUN_FAILED
+  TASK_QUEUED
+}
+
+enum AgentTaskStatus {
+  QUEUED
+}
+
+model SubAgent {
+  id                       String               @id
+  teamId                   TeamId
+  name                     String
+  role                     String
+  status                   AgentRuntimeStatus   @default(IDLE)
+  provider                 String?
+  model                    String?
+  lastHeartbeatAt          DateTime?
+  lastSuccessfulExecutionAt DateTime?
+  instructions             String               @default("")
+  createdAt                DateTime             @default(now())
+  updatedAt                DateTime             @updatedAt
+  executions               AgentExecution[]
+  events                   AgentEvent[]
+  tasks                    AgentTask[]
+
+  @@index([teamId, status])
+  @@index([lastHeartbeatAt])
+}
+
+model AgentExecution {
+  id           String                @id
+  agentId      String
+  status       AgentExecutionStatus  @default(RUNNING)
+  provider     String?
+  model        String?
+  inputTokens  Int?
+  outputTokens Int?
+  startedAt    DateTime              @default(now())
+  finishedAt   DateTime?
+  agent        SubAgent              @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  @@index([agentId, startedAt])
+  @@index([status, startedAt])
+}
+
+model AgentEvent {
+  id          String         @id
+  agentId     String
+  executionId String?
+  type        AgentEventType
+  receivedAt  DateTime       @default(now())
+  agent       SubAgent       @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  @@index([agentId, receivedAt])
+  @@index([executionId])
+}
+
+model AgentTask {
+  id          String          @id
+  teamId      TeamId
+  agentId     String?
+  title       String
+  description String
+  status      AgentTaskStatus @default(QUEUED)
+  createdAt   DateTime        @default(now())
+  agent       SubAgent?       @relation(fields: [agentId], references: [id], onDelete: SetNull)
+
+  @@index([teamId, createdAt])
+  @@index([agentId, status])
+}

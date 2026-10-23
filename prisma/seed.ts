@@ -1,2 +1,2 @@
-// Database seed script will be added after schema approval.
+// Agent records are registered by authenticated worker monitoring events.
 export {};

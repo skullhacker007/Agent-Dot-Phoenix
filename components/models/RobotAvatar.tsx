@@ -1,63 +1,21 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import dynamic from "next/dynamic";
+import {
+  TEAM_DEFINITIONS,
+  dashboardResponseSchema,
+} from "@/lib/agent-monitoring";
+import type { TeamDashboard } from "@/lib/agent-monitoring";
 import "./RobotAvatar.css";
 
 const Spline = dynamic(() => import("@splinetool/react-spline"), {
   ssr: false,
-  loading: () => (
-    <div className="robot-loading" role="status">
-      INITIALIZING NAVI...
-    </div>
-  ),
+  loading: () => null,
 });
 
-type VoiceStatus = "idle" | "listening" | "speaking";
-type AgentId = "jarvis" | "friday" | "ultron" | "vision";
-
-type Agent = {
-  id: AgentId;
-  name: string;
-  role: string;
-  status: "Active" | "Ready" | "Idle" | "Watching";
-  task: string;
-  duration: string;
-  tokens: string;
-  tasksToday: string;
-  progress?: number;
-};
-
-type SpeechRecognitionResult = {
-  readonly isFinal: boolean;
-  readonly [index: number]: { readonly transcript: string };
-};
-
-type SpeechRecognitionEvent = {
-  readonly resultIndex: number;
-  readonly results: ArrayLike<SpeechRecognitionResult>;
-};
-
-type RecognitionErrorEvent = {
-  readonly error: string;
-};
-
-type Recognition = {
-  lang: string;
-  interimResults: boolean;
-  onresult: ((event: SpeechRecognitionEvent) => void) | null;
-  onerror: ((event: RecognitionErrorEvent) => void) | null;
-  onend: (() => void) | null;
-  start: () => void;
-  stop: () => void;
-  abort: () => void;
-};
-
-type RecognitionWindow = Window & {
-  SpeechRecognition?: new () => Recognition;
-  webkitSpeechRecognition?: new () => Recognition;
-};
+type AgentId = (typeof TEAM_DEFINITIONS)[number]["agentId"];
 
 type IdleCallbackWindow = Window & {
   requestIdleCallback?: (
@@ -67,59 +25,12 @@ type IdleCallbackWindow = Window & {
   cancelIdleCallback?: (handle: number) => void;
 };
 
-type RobotAvatarProps = {
-  onAgentSelect?: (agentId: AgentId) => void;
-};
-
 type WeatherResponse = {
   current?: {
     temperature_2m?: number;
     weather_code?: number;
   };
 };
-
-const AGENTS: Agent[] = [
-  {
-    id: "jarvis",
-    name: "J.A.R.V.I.S",
-    role: "Strategy & Intelligence",
-    status: "Active",
-    task: "Awaiting runtime task data",
-    duration: "—",
-    tokens: "—",
-    tasksToday: "—",
-  },
-  {
-    id: "friday",
-    name: "F.R.I.D.A.Y",
-    role: "Client Acquisition & Relations",
-    status: "Ready",
-    task: "No task reported",
-    duration: "—",
-    tokens: "—",
-    tasksToday: "—",
-  },
-  {
-    id: "ultron",
-    name: "Ultron",
-    role: "Engineering & Automation",
-    status: "Idle",
-    task: "No task reported",
-    duration: "—",
-    tokens: "—",
-    tasksToday: "—",
-  },
-  {
-    id: "vision",
-    name: "Vision",
-    role: "Operations & Monitoring",
-    status: "Watching",
-    task: "Monitoring state unavailable",
-    duration: "—",
-    tokens: "—",
-    tasksToday: "—",
-  },
-];
 
 const AGENT_ICONS: Record<AgentId, ReactNode> = {
   jarvis: (
@@ -185,15 +96,13 @@ const WEATHER_DESCRIPTIONS: Record<number, string> = {
   99: "THUNDERSTORM",
 };
 
-export default function RobotAvatar({ onAgentSelect }: RobotAvatarProps) {
-  const [voiceStatus, setVoiceStatus] = useState<VoiceStatus>("idle");
+export default function RobotAvatar() {
   const [selectedAgent, setSelectedAgent] = useState<AgentId>("jarvis");
-  const [voiceMessage, setVoiceMessage] = useState("VOICE READY");
   const [shouldLoadSpline, setShouldLoadSpline] = useState(false);
-
-  const recognitionRef = useRef<Recognition | null>(null);
-  const statusRef = useRef<VoiceStatus>("idle");
-  const mountedRef = useRef(false);
+  const [splineLoaded, setSplineLoaded] = useState(false);
+  const [visibleAgentCount, setVisibleAgentCount] = useState(0);
+  const [teamDashboards, setTeamDashboards] = useState<TeamDashboard[]>([]);
+  const [monitoringLoading, setMonitoringLoading] = useState(true);
 
   useEffect(() => {
     const idleWindow = window as IdleCallbackWindow;
@@ -215,190 +124,89 @@ export default function RobotAvatar({ onAgentSelect }: RobotAvatarProps) {
     return () => window.clearTimeout(timeoutId);
   }, []);
 
-  const changeVoiceStatus = useCallback((next: VoiceStatus) => {
-    statusRef.current = next;
-    setVoiceStatus(next);
-  }, []);
-
   useEffect(() => {
-    mountedRef.current = true;
+    let active = true;
+    const eventSource = new EventSource("/api/monitoring/teams/stream");
 
-    return () => {
-      mountedRef.current = false;
-      recognitionRef.current?.abort();
-      recognitionRef.current = null;
-      window.speechSynthesis?.cancel();
+    eventSource.onopen = () => {
+      if (active) {
+        setMonitoringLoading(false);
+      }
     };
-  }, []);
 
-  const speak = useCallback(
-    (text: string) => {
-      if (!("speechSynthesis" in window)) {
-        setVoiceMessage(text);
-        changeVoiceStatus("idle");
+    eventSource.onmessage = (event) => {
+      let payload: unknown;
+      try {
+        payload = JSON.parse(event.data);
+      } catch (error) {
+        if (!(error instanceof SyntaxError)) throw error;
+        console.error("Monitoring stream sent invalid JSON.", error);
         return;
       }
 
-      window.speechSynthesis.cancel();
-
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.rate = 1;
-      utterance.pitch = 0.9;
-      utterance.volume = 1;
-
-      utterance.onstart = () => {
-        if (mountedRef.current) {
-          changeVoiceStatus("speaking");
-        }
-      };
-
-      utterance.onend = () => {
-        if (!mountedRef.current) return;
-
-        changeVoiceStatus("idle");
-        setVoiceMessage("VOICE READY");
-      };
-
-      utterance.onerror = () => {
-        if (!mountedRef.current) return;
-
-        changeVoiceStatus("idle");
-        setVoiceMessage("SPEECH PLAYBACK INTERRUPTED");
-      };
-
-      window.speechSynthesis.speak(utterance);
-    },
-    [changeVoiceStatus],
-  );
-
-  const startListening = useCallback(() => {
-    if (statusRef.current === "listening") {
-      recognitionRef.current?.stop();
-      return;
-    }
-
-    if (statusRef.current === "speaking") {
-      window.speechSynthesis?.cancel();
-      changeVoiceStatus("idle");
-    }
-
-    recognitionRef.current?.abort();
-    recognitionRef.current = null;
-
-    const browser = window as RecognitionWindow;
-    const RecognitionAPI =
-      browser.SpeechRecognition ?? browser.webkitSpeechRecognition;
-
-    if (!RecognitionAPI) {
-      setVoiceMessage("VOICE INPUT NOT SUPPORTED");
-      return;
-    }
-
-    const recognition = new RecognitionAPI();
-
-    recognition.lang = "en-IN";
-    recognition.interimResults = true;
-
-    recognition.onresult = (event) => {
-      let finalText = "";
-      let interimText = "";
-
-      for (let i = event.resultIndex; i < event.results.length; i++) {
-        const result = event.results[i];
-
-        if (result.isFinal) {
-          finalText += result[0].transcript;
-        } else {
-          interimText += result[0].transcript;
-        }
+      const parsed = dashboardResponseSchema.safeParse(payload);
+      if (!parsed.success) {
+        console.error("Monitoring stream sent an invalid dashboard payload.");
+        return;
       }
 
-      if (finalText.trim()) {
-        setVoiceMessage("VOICE CAPTURED");
-
-        // Demo response only. Connect your NAVI backend
-        // here to process commands and route them to agents.
-        speak(`I heard you say: ${finalText.trim()}`);
-      } else if (interimText.trim()) {
-        setVoiceMessage("HEARING YOU...");
+      if (active) {
+        setTeamDashboards(parsed.data.teams);
+        setMonitoringLoading(false);
       }
     };
 
-    recognition.onerror = (event) => {
-      if (!mountedRef.current) return;
-
-      changeVoiceStatus("idle");
-
-      setVoiceMessage(
-        event.error === "not-allowed"
-          ? "ALLOW MICROPHONE ACCESS"
-          : event.error === "no-speech"
-            ? "NO SPEECH DETECTED"
-            : "VOICE INPUT INTERRUPTED",
-      );
-    };
-
-    recognition.onend = () => {
-      if (recognitionRef.current === recognition) {
-        recognitionRef.current = null;
-      }
-
-      if (mountedRef.current && statusRef.current === "listening") {
-        changeVoiceStatus("idle");
-        setVoiceMessage("VOICE READY");
+    eventSource.onerror = () => {
+      if (active) {
+        setMonitoringLoading(false);
       }
     };
-
-    recognitionRef.current = recognition;
-
-    try {
-      setVoiceMessage("LISTENING...");
-      changeVoiceStatus("listening");
-      recognition.start();
-    } catch {
-      recognitionRef.current = null;
-      changeVoiceStatus("idle");
-      setVoiceMessage("COULD NOT START MICROPHONE");
-    }
-  }, [changeVoiceStatus, speak]);
-
-  // Preserve the existing keyboard shortcut without displaying it.
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.altKey && event.shiftKey && event.code === "KeyV") {
-        event.preventDefault();
-        startListening();
-      }
-    };
-
-    window.addEventListener("keydown", onKeyDown);
 
     return () => {
-      window.removeEventListener("keydown", onKeyDown);
+      active = false;
+      eventSource.close();
     };
-  }, [startListening]);
+  }, []);
+
+  useEffect(() => {
+    if (!splineLoaded || visibleAgentCount >= TEAM_DEFINITIONS.length) return;
+
+    const delay = visibleAgentCount === 0 ? 700 : 220;
+    const timeoutId = window.setTimeout(() => {
+      setVisibleAgentCount((count) => count + 1);
+    }, delay);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [splineLoaded, visibleAgentCount]);
 
   const selectAgent = (agentId: AgentId) => {
     setSelectedAgent(agentId);
-    onAgentSelect?.(agentId);
   };
 
   return (
-    <main className={`robot-scene state-${voiceStatus}`}>
+    <main className="robot-scene">
       <div className="robot-background" aria-hidden="true" />
       <div className="robot-glow" aria-hidden="true" />
       <div className="robot-particles" aria-hidden="true" />
 
-      <div className="robot-model" aria-label="NAVI master agent">
-        {shouldLoadSpline ? (
-          <Spline scene="/robo.spline" />
-        ) : (
-          <div className="robot-loading" role="status">
-            INITIALIZING NAVI...
-          </div>
+      <div
+        className={`robot-model ${splineLoaded ? "is-loaded" : ""}`}
+        aria-label="NAVI master agent"
+      >
+        {shouldLoadSpline && (
+          <Spline
+            scene="/robo.spline"
+            onLoad={() => {
+              setSplineLoaded(true);
+              if (
+                window.matchMedia("(prefers-reduced-motion: reduce)").matches
+              ) {
+                setVisibleAgentCount(TEAM_DEFINITIONS.length);
+              }
+            }}
+          />
         )}
       </div>
-
       <div className="navi-chest-label" aria-label="NAVI Master Agent">
         N A V I
       </div>
@@ -413,35 +221,44 @@ export default function RobotAvatar({ onAgentSelect }: RobotAvatarProps) {
 
       <section className="navi-agent-layout" aria-label="NAVI managed agents">
         <div className="navi-agent-column navi-agent-column-left">
-          {AGENTS.filter(
-            (agent) => agent.id === "jarvis" || agent.id === "ultron",
+          {TEAM_DEFINITIONS.filter(
+            (team) => team.id === "JARVIS" || team.id === "ULTRON",
           ).map((agent) => (
             <AgentCard
-              key={agent.id}
-              agent={agent}
-              selected={selectedAgent === agent.id}
-              onSelect={() => selectAgent(agent.id)}
+              key={agent.agentId}
+              team={agent}
+              dashboard={teamDashboards.find(({ id }) => id === agent.id)}
+              loading={monitoringLoading}
+              revealed={
+                TEAM_DEFINITIONS.findIndex(({ id }) => id === agent.id) <
+                visibleAgentCount
+              }
+              selected={selectedAgent === agent.agentId}
+              onSelect={() => selectAgent(agent.agentId)}
             />
           ))}
         </div>
 
         <div className="navi-agent-column navi-agent-column-right">
-          {AGENTS.filter(
-            (agent) => agent.id === "friday" || agent.id === "vision",
+          {TEAM_DEFINITIONS.filter(
+            (team) => team.id === "FRIDAY" || team.id === "VISION",
           ).map((agent) => (
             <AgentCard
-              key={agent.id}
-              agent={agent}
-              selected={selectedAgent === agent.id}
-              onSelect={() => selectAgent(agent.id)}
+              key={agent.agentId}
+              team={agent}
+              dashboard={teamDashboards.find(({ id }) => id === agent.id)}
+              loading={monitoringLoading}
+              revealed={
+                TEAM_DEFINITIONS.findIndex(({ id }) => id === agent.id) <
+                visibleAgentCount
+              }
+              selected={selectedAgent === agent.agentId}
+              onSelect={() => selectAgent(agent.agentId)}
             />
           ))}
         </div>
       </section>
 
-      <span className="navi-sr-only" aria-live="polite">
-        {voiceMessage}
-      </span>
     </main>
   );
 }
@@ -583,81 +400,153 @@ function NaviHeader() {
 }
 
 function AgentCard({
-  agent,
+  team,
+  dashboard,
+  loading,
+  revealed,
   selected,
   onSelect,
 }: {
-  agent: Agent;
+  team: (typeof TEAM_DEFINITIONS)[number];
+  dashboard: TeamDashboard | undefined;
+  loading: boolean;
+  revealed: boolean;
   selected: boolean;
   onSelect: () => void;
 }) {
-  const statusClass = agent.status.toLowerCase();
+  const status = dashboard?.status ?? (loading ? "loading" : "unavailable");
+  const statusLabel = dashboard?.status ?? (loading ? "Loading" : "Unavailable");
+  const visibleMembers = dashboard?.agents.slice(0, 2) ?? [];
+  const modelSummary = dashboard?.models.length
+    ? dashboard.models.join(", ")
+    : "No Model assigned";
 
   return (
-    <button
-      type="button"
-      className={`navi-agent-card ${selected ? "is-selected" : ""}`}
-      onClick={onSelect}
-      aria-pressed={selected}
-      aria-label={`Select ${agent.name}, status ${agent.status}`}
+    <article
+      className={`navi-agent-card ${selected ? "is-selected" : ""} ${
+        revealed ? "is-revealed" : ""
+      }`}
     >
-      <div className="navi-agent-card-top">
-        <span className={`navi-agent-icon icon-${agent.id}`} aria-hidden="true">
-          {AGENT_ICONS[agent.id]}
+      <button
+        type="button"
+        className="navi-agent-card-select navi-agent-card-top"
+        onClick={onSelect}
+        aria-pressed={selected}
+        aria-label={`Select ${team.name}`}
+      >
+        <span
+          className={`navi-agent-icon icon-${team.agentId}`}
+          aria-hidden="true"
+        >
+          {AGENT_ICONS[team.agentId]}
         </span>
 
         <div className="navi-agent-heading">
-          <span className="navi-agent-name" title={agent.name}>
-            {agent.name}
+          <span className="navi-agent-name" title={team.name}>
+            {team.name}
           </span>
-          <span className="navi-agent-role" title={agent.role}>
-            {agent.role}
+          <span className="navi-agent-role" title={team.role}>
+            {team.role}
           </span>
         </div>
 
-        <span className={`navi-agent-status status-${statusClass}`}>
+        <span className={`navi-agent-status status-${status}`}>
           <span />
-          {agent.status}
+          {statusLabel}
         </span>
+      </button>
+
+      <div className="navi-team-metrics">
+        <div>
+          <span className="navi-metric-label">TOTAL</span>
+          <strong>{dashboard?.counts.total ?? "—"}</strong>
+        </div>
+        <div>
+          <span className="navi-metric-label">WORKING</span>
+          <strong>{dashboard?.counts.working ?? "—"}</strong>
+        </div>
+        <div>
+          <span className="navi-metric-label">IDLE</span>
+          <strong>{dashboard?.counts.idle ?? "—"}</strong>
+        </div>
+        <div>
+          <span className="navi-metric-label">ISSUES</span>
+          <strong>
+            {dashboard
+              ? dashboard.counts.failed + dashboard.counts.stalled
+              : "—"}
+          </strong>
+        </div>
       </div>
 
-      <div className="navi-agent-task">
-        <span className="navi-metric-label">CURRENT TASK</span>
-
-        <span className="navi-task-value" title={agent.task}>
-          {agent.task}
-        </span>
+      <div className="navi-team-model" title={modelSummary}>
+        <span className="navi-metric-label">MODELS</span>
+        <strong>{modelSummary}</strong>
       </div>
 
-      {typeof agent.progress === "number" && (
-        <div
-          className="navi-agent-progress"
-          aria-label={`${agent.progress}% progress`}
-        >
-          <span
-            style={{
-              width: `${Math.max(0, Math.min(100, agent.progress))}%`,
-            }}
-          />
-        </div>
-      )}
-
-      <div className="navi-agent-metrics">
-        <div>
-          <span className="navi-metric-label">WORKING TIME</span>
-          <strong title={agent.duration}>{agent.duration}</strong>
-        </div>
-
-        <div>
-          <span className="navi-metric-label">TOKENS USED</span>
-          <strong title={agent.tokens}>{agent.tokens}</strong>
-        </div>
-
-        <div>
-          <span className="navi-metric-label">TASKS TODAY</span>
-          <strong title={agent.tasksToday}>{agent.tasksToday}</strong>
-        </div>
+      <div className="navi-team-members">
+        {visibleMembers.length ? (
+          visibleMembers.map((member) => (
+            <div className="navi-team-member" key={member.id}>
+              <div className="navi-team-member-heading">
+                <span title={member.name}>{member.name}</span>
+                <span
+                  className={`navi-member-status status-${member.status}`}
+                  title={`Last heartbeat: ${member.lastHeartbeatAt ?? "not received"}`}
+                >
+                  {member.status}
+                </span>
+              </div>
+              <div className="navi-team-member-details">
+                <span title={member.model ?? "No Model assigned"}>
+                  {member.model ?? "No Model assigned"}
+                </span>
+                <span>
+                  {formatTokenCount(member.inputTokens)} IN ·{" "}
+                  {formatTokenCount(member.outputTokens)} OUT
+                </span>
+              </div>
+              <div className="navi-team-member-meta">
+                HEARTBEAT {formatAge(member.lastHeartbeatAt)} · LAST SUCCESS{" "}
+                {formatAge(member.lastSuccessfulExecutionAt)}
+              </div>
+            </div>
+          ))
+        ) : (
+          loading && <span className="navi-team-empty">Loading agents…</span>
+        )}
+        {(dashboard?.counts.total ?? 0) > visibleMembers.length && (
+          <span className="navi-team-more">
+            +{(dashboard?.counts.total ?? 0) - visibleMembers.length} more
+          </span>
+        )}
       </div>
-    </button>
+
+      <div className="navi-team-tokens">
+        <span className="navi-metric-label">RUN TOKENS TODAY</span>
+        <strong>
+          {formatTokenCount(dashboard?.tokens.input ?? null)} IN ·{" "}
+          {formatTokenCount(dashboard?.tokens.output ?? null)} OUT
+        </strong>
+      </div>
+    </article>
   );
+}
+
+function formatTokenCount(value: number | null) {
+  if (value === null) return "—";
+  return new Intl.NumberFormat("en", { notation: "compact" }).format(value);
+}
+
+function formatAge(timestamp: string | null) {
+  if (!timestamp) return "—";
+  const ageSeconds = Math.max(
+    0,
+    Math.floor((Date.now() - Date.parse(timestamp)) / 1000),
+  );
+  if (!Number.isFinite(ageSeconds)) return "—";
+  if (ageSeconds < 60) return `${ageSeconds}s`;
+  if (ageSeconds < 3600) return `${Math.floor(ageSeconds / 60)}m`;
+  if (ageSeconds < 86_400) return `${Math.floor(ageSeconds / 3600)}h`;
+  return `${Math.floor(ageSeconds / 86_400)}d`;
 }

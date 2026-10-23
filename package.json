@@ -22,7 +22,7 @@
     "@splinetool/react-spline": "^4.1.0",
     "next": "16.4.2",
     "pg": "^8.23.1",
-    "pg-boss": "^12.38.0",
+    "pg-Sir": "^12.38.0",
     "pino": "^10.4.0",
     "react": "19.3.0",
     "react-dom": "19.3.0",

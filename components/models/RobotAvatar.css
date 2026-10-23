@@ -114,6 +114,12 @@
   width: 100% !important;
   height: 100% !important;
   outline: none;
+  opacity: 0;
+  transition: opacity 500ms ease;
+}
+
+.robot-model.is-loaded canvas {
+  opacity: 1;
 }
 
 /* Soft cyan atmosphere */
@@ -284,7 +290,6 @@
   display: block;
 
   overflow: hidden;
-
   color: var(--navi-text);
   font-family: var(--navi-font-heading);
   font-size: 17px;
@@ -348,15 +353,12 @@
   inset: 100px 38px 66px;
 
   display: grid;
-  grid-template-columns:
-    minmax(270px, 320px)
-    minmax(270px, 320px);
+  grid-template-columns: minmax(270px, 320px) minmax(270px, 320px);
 
   align-content: stretch;
   justify-content: space-between;
 
   column-gap: clamp(36px, 8vw, 130px);
-  row-gap: 0;
 
   pointer-events: none;
 }
@@ -391,11 +393,12 @@
   display: flex;
 
   width: 100%;
-  height: 196px;
-  min-height: 196px;
-  flex: 0 0 196px;
+  height: 252px;
+  min-height: 252px;
+  flex: 0 0 252px;
 
   flex-direction: column;
+  justify-content: flex-start;
 
   padding: 14px 16px;
   overflow: hidden;
@@ -415,14 +418,33 @@
     inset 0 1px 0 rgba(255, 255, 255, 0.035),
     0 10px 28px rgba(0, 0, 0, 0.12);
 
-  cursor: pointer;
   pointer-events: auto;
 
   transition:
+    opacity 360ms ease,
+    transform 360ms cubic-bezier(0.2, 0.75, 0.25, 1),
+    visibility 0s linear 360ms,
     border-color 230ms ease,
     background 230ms ease,
-    box-shadow 230ms ease,
-    transform 230ms ease;
+    box-shadow 230ms ease;
+
+  opacity: 0;
+  transform: translateY(8px);
+  visibility: hidden;
+}
+
+.navi-agent-card.is-revealed {
+  opacity: 1;
+  transform: translateY(0);
+  visibility: visible;
+
+  transition:
+    opacity 360ms ease,
+    transform 360ms cubic-bezier(0.2, 0.75, 0.25, 1),
+    visibility 0s,
+    border-color 230ms ease,
+    background 230ms ease,
+    box-shadow 230ms ease;
 }
 
 .navi-agent-card::before {
@@ -466,7 +488,18 @@
   box-shadow: 0 0 10px rgba(34, 211, 238, 0.7);
 }
 
-.navi-agent-card:focus-visible {
+.navi-agent-card-select {
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.navi-agent-card-select:focus-visible {
   outline: 2px solid var(--navi-cyan);
   outline-offset: 4px;
 }
@@ -575,39 +608,6 @@
   background: #94a3b8;
 }
 
-.status-active > span {
-  background: var(--navi-cyan);
-  box-shadow: 0 0 8px rgba(34, 211, 238, 0.45);
-}
-
-.status-active {
-  border-color: rgba(34, 211, 238, 0.18);
-  background: rgba(34, 211, 238, 0.07);
-  color: #a5f3fc;
-}
-
-.status-ready > span {
-  background: var(--navi-green);
-}
-
-.status-ready {
-  border-color: rgba(52, 211, 153, 0.18);
-  background: rgba(52, 211, 153, 0.07);
-  color: #a7f3d0;
-}
-
-.status-idle > span {
-  background: #94a3b8;
-}
-
-.status-idle {
-  color: #cbd5e1;
-}
-
-.status-watching > span {
-  background: var(--navi-amber);
-}
-
 /* Agent name */
 
 .navi-agent-name {
@@ -641,19 +641,6 @@
   -webkit-line-clamp: 2;
 }
 
-/* Current task */
-
-.navi-agent-task {
-  display: flex;
-  min-width: 0;
-  min-height: 47px;
-
-  flex-direction: column;
-  gap: 5px;
-
-  margin-top: 13px;
-}
-
 .navi-metric-label {
   color: var(--navi-subtle);
 
@@ -666,88 +653,188 @@
   white-space: nowrap;
 }
 
-.navi-task-value {
-  display: block;
-  display: -webkit-box;
-  overflow: hidden;
-
-  color: var(--navi-text);
-
-  font-family: var(--navi-font-body);
-  font-size: 13px;
-  font-weight: 500;
-  line-height: 1.45;
-  overflow-wrap: anywhere;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-}
-
-/* Optional task progress */
-
-.navi-agent-progress {
-  height: 3px;
-  margin-top: 7px;
-
-  overflow: hidden;
-  border-radius: 99px;
-
-  background: rgba(148, 163, 184, 0.15);
-}
-
-.navi-agent-progress > span {
-  display: block;
-  height: 100%;
-
-  border-radius: inherit;
-  background: var(--navi-cyan);
-
-  box-shadow: 0 0 8px rgba(34, 211, 238, 0.45);
-
-  transition: width 300ms ease;
-}
-
-/* Working time, tokens and tasks */
-
-.navi-agent-metrics {
+.navi-team-metrics {
   display: grid;
-
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-
-  gap: 0;
-
-  margin-top: auto;
-  padding-top: 10px;
-
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 10px;
+  padding-top: 9px;
   border-top: 1px solid rgba(255, 255, 255, 0.09);
 }
 
-.navi-agent-metrics > div {
+.navi-team-metrics > div {
   display: flex;
   min-width: 0;
-
   flex-direction: column;
-  gap: 4px;
+  gap: 3px;
 }
 
-.navi-agent-metrics > div + div {
-  padding-left: 10px;
-  border-left: 1px solid rgba(255, 255, 255, 0.075);
-}
-
-.navi-agent-metrics strong {
-  display: block;
-  overflow: hidden;
-
+.navi-team-metrics strong {
   color: var(--navi-text);
-
   font-family: var(--navi-font-mono);
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 500;
-  line-height: 1.35;
+  line-height: 1.2;
   font-variant-numeric: tabular-nums;
+}
 
+.navi-team-model {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: baseline;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.navi-team-model strong {
+  overflow: hidden;
+  color: var(--navi-text);
+  font-family: var(--navi-font-mono);
+  font-size: 11px;
+  font-weight: 500;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.navi-team-members {
+  display: flex;
+  min-width: 0;
+  min-height: 42px;
+  flex-direction: column;
+  gap: 5px;
+  margin-top: 8px;
+}
+
+.navi-team-member {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.navi-team-member-heading,
+.navi-team-member-details {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.navi-team-member-heading > span:first-child,
+.navi-team-member-details > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.navi-team-member-heading > span:first-child {
+  color: var(--navi-text);
+  font-family: var(--navi-font-mono);
+  font-size: 10px;
+  font-weight: 500;
+}
+
+.navi-member-status {
+  flex: 0 0 auto;
+  font-family: var(--navi-font-mono);
+  font-size: 9px;
+  text-transform: uppercase;
+}
+
+.navi-team-member-details {
+  color: var(--navi-subtle);
+  font-family: var(--navi-font-mono);
+  font-size: 9px;
+}
+
+.navi-team-member-meta {
+  overflow: hidden;
+  color: var(--navi-subtle);
+  font-family: var(--navi-font-mono);
+  font-size: 8px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.navi-team-empty,
+.navi-team-more {
+  display: block;
+  overflow: hidden;
+  color: var(--navi-subtle);
+  font-family: var(--navi-font-mono);
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.navi-team-tokens {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: auto;
+  padding-top: 7px;
+  border-top: 1px solid rgba(255, 255, 255, 0.075);
+}
+
+.navi-team-tokens strong {
+  color: var(--navi-text);
+  font-family: var(--navi-font-mono);
+  font-size: 10px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.status-working > span {
+  background: var(--navi-cyan);
+  box-shadow: 0 0 8px rgba(34, 211, 238, 0.45);
+}
+
+.status-working {
+  border-color: rgba(34, 211, 238, 0.18);
+  background: rgba(34, 211, 238, 0.07);
+  color: #a5f3fc;
+}
+
+.status-idle > span {
+  background: var(--navi-green);
+}
+
+.status-idle {
+  color: #a7f3d0;
+}
+
+.status-stalled > span,
+.status-partial > span {
+  background: var(--navi-amber);
+}
+
+.status-stalled,
+.status-partial {
+  color: #fcd34d;
+}
+
+.status-attention > span,
+.status-failed > span {
+  background: #f87171;
+}
+
+.status-attention,
+.status-failed {
+  color: #fca5a5;
+}
+
+.status-offline > span,
+.status-loading > span,
+.status-unavailable > span {
+  background: #94a3b8;
+}
+
+.status-offline,
+.status-loading,
+.status-unavailable {
+  color: #cbd5e1;
 }
 
 /* =========================================================
@@ -901,29 +988,12 @@
 }
 
 /* =========================================================
-   7. ACCESSIBLE STATUS (screen readers only)
-========================================================= */
-
-.navi-sr-only {
-  position: absolute !important;
-
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-  border: 0;
-}
-
-/* =========================================================
    8. LOADING STATE
 ========================================================= */
 
 .robot-loading {
   position: absolute;
+  z-index: 4;
   inset: 0;
 
   display: grid;
@@ -1015,28 +1085,10 @@
     column-gap: clamp(24px, 4vw, 55px);
   }
 
-  .navi-agent-card {
-    height: 190px;
-    min-height: 190px;
-    flex-basis: 190px;
-
-    padding: 10px 12px;
-  }
+  .navi-agent-card { padding: 10px 12px; }
 
   .navi-agent-name {
     font-size: 15px;
-  }
-
-  .navi-task-value {
-    font-size: 12px;
-  }
-
-  .navi-agent-metrics {
-    gap: 7px;
-  }
-
-  .navi-agent-metrics strong {
-    font-size: 13px;
   }
 
   .navi-metric-label {
@@ -1105,13 +1157,13 @@
     opacity: 0.1;
   }
 
-  /* Four compact agent chips above the bottom edge */
+  /* Compact two-column team cards above the bottom edge */
 
   .navi-agent-layout {
     inset: auto 12px calc(28px + env(safe-area-inset-bottom));
 
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
 
     align-content: start;
     justify-content: stretch;
@@ -1125,14 +1177,14 @@
   .navi-agent-card {
     width: 100%;
     min-width: 0;
-    min-height: 64px;
-    height: 64px;
-    flex-basis: 64px;
+    min-height: 232px;
+    height: 232px;
+    flex-basis: 232px;
 
-    padding: 7px 3px;
+    padding: 9px;
 
-    align-items: center;
-    justify-content: center;
+    align-items: stretch;
+    justify-content: flex-start;
 
     border-radius: 11px;
     background: rgba(5, 15, 26, 0.91);
@@ -1143,17 +1195,17 @@
 
   .navi-agent-card-top {
     display: flex;
-    justify-content: center;
+    justify-content: flex-start;
     gap: 0;
   }
 
   .navi-agent-heading {
-    display: contents;
+    margin-left: 7px;
   }
 
   .navi-agent-icon {
-    width: 24px;
-    height: 24px;
+    width: 27px;
+    height: 27px;
 
     border-radius: 7px;
   }
@@ -1163,23 +1215,88 @@
     height: 16px;
   }
 
-  .navi-agent-status,
-  .navi-agent-role,
-  .navi-agent-task,
-  .navi-agent-progress,
-  .navi-agent-metrics {
+  .navi-agent-status {
+    gap: 4px;
+    padding: 3px 5px;
+    font-size: 8px;
+  }
+
+  .navi-agent-role {
     display: none;
   }
 
   .navi-agent-name {
     max-width: 100%;
-    margin-top: 5px;
+    margin-top: 0;
 
     font-size: 10px;
     line-height: 1.25;
     letter-spacing: 0;
 
     white-space: nowrap;
+  }
+
+  .navi-team-metrics {
+    gap: 4px;
+    margin-top: 8px;
+    padding-top: 6px;
+  }
+
+  .navi-team-metrics .navi-metric-label,
+  .navi-team-tokens .navi-metric-label {
+    font-size: 8px;
+    letter-spacing: 0.02em;
+  }
+
+  .navi-team-metrics strong {
+    font-size: 13px;
+  }
+
+  .navi-team-model {
+    gap: 5px;
+    margin-top: 6px;
+  }
+
+  .navi-team-model .navi-metric-label {
+    font-size: 8px;
+    letter-spacing: 0.02em;
+  }
+
+  .navi-team-model strong {
+    font-size: 9px;
+  }
+
+  .navi-team-members {
+    min-height: 38px;
+    margin-top: 6px;
+    gap: 4px;
+  }
+
+  .navi-team-member-heading > span:first-child,
+  .navi-team-member-details {
+    font-size: 8px;
+  }
+
+  .navi-team-member-meta {
+    font-size: 7px;
+  }
+
+  .navi-team-member-details {
+    gap: 4px;
+  }
+
+  .navi-team-empty,
+  .navi-team-more {
+    font-size: 8px;
+  }
+
+  .navi-team-tokens {
+    gap: 4px;
+    padding-top: 5px;
+  }
+
+  .navi-team-tokens strong {
+    font-size: 8px;
   }
 
   .navi-chest-label {
@@ -1251,11 +1368,11 @@
   }
 
   .navi-agent-card {
-    padding-inline: 2px;
+    padding-inline: 6px;
   }
 
   .navi-agent-name {
-    font-size: 9px;
+    font-size: 10px;
   }
 }
 
@@ -1273,20 +1390,11 @@
   }
 
   .navi-agent-card {
-    height: 182px;
-    min-height: 182px;
-    flex-basis: 182px;
-
-    padding: 9px 11px;
+    height: 238px;
+    min-height: 238px;
+    flex-basis: 238px;
   }
 
-  .navi-agent-task {
-    margin-top: 6px;
-  }
-
-  .navi-agent-metrics {
-    padding-top: 6px;
-  }
 }
 
 /* =========================================================
@@ -1300,5 +1408,6 @@
     animation: none !important;
     scroll-behavior: auto !important;
     transition-duration: 0.01ms !important;
+    transition-delay: 0ms !important;
   }
 }
