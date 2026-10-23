@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import type { ReactNode } from "react";
 import dynamic from "next/dynamic";
 import "./RobotAvatar.css";
 
@@ -58,6 +59,14 @@ type RecognitionWindow = Window & {
   webkitSpeechRecognition?: new () => Recognition;
 };
 
+type IdleCallbackWindow = Window & {
+  requestIdleCallback?: (
+    callback: () => void,
+    options?: { timeout: number },
+  ) => number;
+  cancelIdleCallback?: (handle: number) => void;
+};
+
 type RobotAvatarProps = {
   onAgentSelect?: (agentId: AgentId) => void;
 };
@@ -103,7 +112,7 @@ const AGENTS: Agent[] = [
   {
     id: "vision",
     name: "Vision",
-    role: "Operations, Quality & Monitoring",
+    role: "Operations & Monitoring",
     status: "Watching",
     task: "Monitoring state unavailable",
     duration: "—",
@@ -112,11 +121,37 @@ const AGENTS: Agent[] = [
   },
 ];
 
-const AGENT_ICONS: Record<AgentId, string> = {
-  jarvis: "✳",
-  friday: "⌁",
-  ultron: "⬡",
-  vision: "◉",
+const AGENT_ICONS: Record<AgentId, ReactNode> = {
+  jarvis: (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M12 3.5v3M12 17.5v3M3.5 12h3m11 0h3M6 6l2.1 2.1m7.8 7.8L18 18m0-12-2.1 2.1m-7.8 7.8L6 18" />
+      <circle cx="12" cy="12" r="3.2" />
+      <circle cx="12" cy="12" r="1" className="agent-icon-fill" />
+    </svg>
+  ),
+  friday: (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <circle cx="9" cy="8" r="3" />
+      <path d="M3.8 19v-1.2a5.2 5.2 0 0 1 10.4 0V19" />
+      <path d="M15.5 7.5h4a1.5 1.5 0 0 1 1.5 1.5v4a1.5 1.5 0 0 1-1.5 1.5h-1.8L15 17v-2.5h-.5A1.5 1.5 0 0 1 13 13V9a1.5 1.5 0 0 1 1.5-1.5Z" />
+      <path d="M15.5 10.5h3m-3 2h2" />
+    </svg>
+  ),
+  ultron: (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M8 3.5v2m4-2v2m4-2v2M8 18.5v2m4-2v2m4-2v2m2.5-10h2m-2 4h2m-2-8h2m-19 4h2m-2 4h2m-2-8h2" />
+      <path d="M6.5 5.5h11v13h-11z" />
+      <path d="m12 7.5 3.2 2v4.3L12 16l-3.2-2.2V9.5l3.2-2Z" />
+      <path d="M10.3 11.2h.1m3.2 0h.1" />
+    </svg>
+  ),
+  vision: (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M2.8 12s3.2-6 9.2-6 9.2 6 9.2 6-3.2 6-9.2 6-9.2-6-9.2-6Z" />
+      <circle cx="12" cy="12" r="3.2" />
+      <circle cx="12" cy="12" r="1" className="agent-icon-fill" />
+    </svg>
+  ),
 };
 
 const WEATHER_DESCRIPTIONS: Record<number, string> = {
@@ -154,10 +189,31 @@ export default function RobotAvatar({ onAgentSelect }: RobotAvatarProps) {
   const [voiceStatus, setVoiceStatus] = useState<VoiceStatus>("idle");
   const [selectedAgent, setSelectedAgent] = useState<AgentId>("jarvis");
   const [voiceMessage, setVoiceMessage] = useState("VOICE READY");
+  const [shouldLoadSpline, setShouldLoadSpline] = useState(false);
 
   const recognitionRef = useRef<Recognition | null>(null);
   const statusRef = useRef<VoiceStatus>("idle");
   const mountedRef = useRef(false);
+
+  useEffect(() => {
+    const idleWindow = window as IdleCallbackWindow;
+    const requestIdleCallback = idleWindow.requestIdleCallback;
+    const cancelIdleCallback = idleWindow.cancelIdleCallback;
+
+    if (requestIdleCallback && cancelIdleCallback) {
+      const idleCallbackId = requestIdleCallback.call(
+        idleWindow,
+        () => setShouldLoadSpline(true),
+        { timeout: 1200 },
+      );
+
+      return () => cancelIdleCallback.call(idleWindow, idleCallbackId);
+    }
+
+    const timeoutId = window.setTimeout(() => setShouldLoadSpline(true), 250);
+
+    return () => window.clearTimeout(timeoutId);
+  }, []);
 
   const changeVoiceStatus = useCallback((next: VoiceStatus) => {
     statusRef.current = next;
@@ -334,7 +390,13 @@ export default function RobotAvatar({ onAgentSelect }: RobotAvatarProps) {
       <div className="robot-particles" aria-hidden="true" />
 
       <div className="robot-model" aria-label="NAVI master agent">
-        <Spline scene="/robo.spline" />
+        {shouldLoadSpline ? (
+          <Spline scene="/robo.spline" />
+        ) : (
+          <div className="robot-loading" role="status">
+            INITIALIZING NAVI...
+          </div>
+        )}
       </div>
 
       <div className="navi-chest-label" aria-label="NAVI Master Agent">
@@ -544,20 +606,27 @@ function AgentCard({
           {AGENT_ICONS[agent.id]}
         </span>
 
+        <div className="navi-agent-heading">
+          <span className="navi-agent-name" title={agent.name}>
+            {agent.name}
+          </span>
+          <span className="navi-agent-role" title={agent.role}>
+            {agent.role}
+          </span>
+        </div>
+
         <span className={`navi-agent-status status-${statusClass}`}>
           <span />
           {agent.status}
         </span>
       </div>
 
-      <div className="navi-agent-name">{agent.name}</div>
-
-      <div className="navi-agent-role">{agent.role}</div>
-
       <div className="navi-agent-task">
         <span className="navi-metric-label">CURRENT TASK</span>
 
-        <span className="navi-task-value">{agent.task}</span>
+        <span className="navi-task-value" title={agent.task}>
+          {agent.task}
+        </span>
       </div>
 
       {typeof agent.progress === "number" && (
@@ -576,17 +645,17 @@ function AgentCard({
       <div className="navi-agent-metrics">
         <div>
           <span className="navi-metric-label">WORKING TIME</span>
-          <strong>{agent.duration}</strong>
+          <strong title={agent.duration}>{agent.duration}</strong>
         </div>
 
         <div>
           <span className="navi-metric-label">TOKENS USED</span>
-          <strong>{agent.tokens}</strong>
+          <strong title={agent.tokens}>{agent.tokens}</strong>
         </div>
 
         <div>
           <span className="navi-metric-label">TASKS TODAY</span>
-          <strong>{agent.tasksToday}</strong>
+          <strong title={agent.tasksToday}>{agent.tasksToday}</strong>
         </div>
       </div>
     </button>

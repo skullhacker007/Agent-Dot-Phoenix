@@ -124,7 +124,7 @@
   top: 42%;
   left: 50%;
 
-  width: min(66vw, 850px);
+  width: min(60vw, 760px);
   aspect-ratio: 1;
 
   transform: translate(-50%, -50%);
@@ -137,7 +137,7 @@
     transparent 70%
   );
 
-  filter: blur(42px);
+  filter: blur(20px);
   opacity: 0.75;
 
   animation: navi-ambient 6s ease-in-out infinite alternate;
@@ -397,7 +397,7 @@
 
   flex-direction: column;
 
-  padding: 12px 14px;
+  padding: 14px 16px;
   overflow: hidden;
 
   border: 1px solid var(--navi-border);
@@ -408,10 +408,12 @@
 
   text-align: left;
 
-  -webkit-backdrop-filter: blur(15px);
-  backdrop-filter: blur(15px);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
 
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.025);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.035),
+    0 10px 28px rgba(0, 0, 0, 0.12);
 
   cursor: pointer;
   pointer-events: auto;
@@ -472,10 +474,19 @@
 /* Card top row */
 
 .navi-agent-card-top {
-  display: flex;
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr) auto;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+  gap: 11px;
+  min-width: 0;
+}
+
+.navi-agent-heading {
+  display: flex;
+  min-width: 0;
+
+  flex-direction: column;
+  gap: 2px;
 }
 
 /* Agent icon */
@@ -495,16 +506,42 @@
   background: rgba(34, 211, 238, 0.075);
   color: var(--navi-cyan);
 
-  font-size: 21px;
-  line-height: 1;
+  box-shadow: inset 0 0 12px rgba(34, 211, 238, 0.035);
 }
 
-.icon-friday,
-.icon-ultron,
+.navi-agent-icon svg {
+  width: 20px;
+  height: 20px;
+
+  overflow: visible;
+
+  stroke: currentColor;
+  stroke-width: 1.55;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.navi-agent-icon .agent-icon-fill {
+  fill: currentColor;
+  stroke: none;
+}
+
+.icon-friday {
+  border-color: rgba(52, 211, 153, 0.3);
+  background: rgba(52, 211, 153, 0.075);
+  color: #6ee7b7;
+}
+
+.icon-ultron {
+  border-color: rgba(248, 113, 113, 0.32);
+  background: rgba(248, 113, 113, 0.075);
+  color: #f87171;
+}
+
 .icon-vision {
-  border-color: rgba(160, 185, 204, 0.2);
-  background: rgba(160, 185, 204, 0.055);
-  color: #c0d0dc;
+  border-color: rgba(251, 191, 36, 0.3);
+  background: rgba(251, 191, 36, 0.075);
+  color: #fbbf24;
 }
 
 /* Agent status: Active / Ready / Idle / Watching */
@@ -515,6 +552,10 @@
   justify-content: flex-end;
   gap: 7px;
 
+  padding: 5px 8px;
+  border: 1px solid rgba(148, 163, 184, 0.12);
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.055);
   color: var(--navi-muted);
 
   font-family: var(--navi-font-mono);
@@ -539,12 +580,28 @@
   box-shadow: 0 0 8px rgba(34, 211, 238, 0.45);
 }
 
+.status-active {
+  border-color: rgba(34, 211, 238, 0.18);
+  background: rgba(34, 211, 238, 0.07);
+  color: #a5f3fc;
+}
+
 .status-ready > span {
   background: var(--navi-green);
 }
 
+.status-ready {
+  border-color: rgba(52, 211, 153, 0.18);
+  background: rgba(52, 211, 153, 0.07);
+  color: #a7f3d0;
+}
+
 .status-idle > span {
   background: #94a3b8;
+}
+
+.status-idle {
+  color: #cbd5e1;
 }
 
 .status-watching > span {
@@ -554,61 +611,75 @@
 /* Agent name */
 
 .navi-agent-name {
-  margin-top: 8px;
+  display: block;
+  overflow: hidden;
 
   color: var(--navi-text);
 
   font-family: var(--navi-font-heading);
-  font-size: 18px;
-  font-weight: 700;
-  line-height: 1.3;
-  letter-spacing: 0.03em;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.25;
+  letter-spacing: 0.015em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* Agent role */
 
 .navi-agent-role {
-  margin-top: 3px;
+  display: -webkit-box;
+  overflow: hidden;
 
   color: var(--navi-subtle);
 
   font-family: var(--navi-font-body);
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 400;
-  line-height: 1.4;
+  line-height: 1.35;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 /* Current task */
 
 .navi-agent-task {
   display: flex;
-  flex-direction: column;
-  gap: 4px;
+  min-width: 0;
+  min-height: 47px;
 
-  margin-top: 9px;
+  flex-direction: column;
+  gap: 5px;
+
+  margin-top: 13px;
 }
 
 .navi-metric-label {
   color: var(--navi-subtle);
 
   font-family: var(--navi-font-mono);
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 500;
   line-height: 1.4;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.055em;
   text-transform: uppercase;
+  white-space: nowrap;
 }
 
 .navi-task-value {
   display: block;
-  overflow-wrap: anywhere;
+  display: -webkit-box;
+  overflow: hidden;
 
   color: var(--navi-text);
 
   font-family: var(--navi-font-body);
   font-size: 13px;
   font-weight: 500;
-  line-height: 1.4;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 /* Optional task progress */
@@ -640,15 +711,12 @@
 .navi-agent-metrics {
   display: grid;
 
-  grid-template-columns:
-    minmax(0, 1fr)
-    minmax(0, 1fr)
-    minmax(0, 0.8fr);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 
-  gap: 10px;
+  gap: 0;
 
   margin-top: auto;
-  padding-top: 8px;
+  padding-top: 10px;
 
   border-top: 1px solid rgba(255, 255, 255, 0.09);
 }
@@ -658,7 +726,12 @@
   min-width: 0;
 
   flex-direction: column;
-  gap: 5px;
+  gap: 4px;
+}
+
+.navi-agent-metrics > div + div {
+  padding-left: 10px;
+  border-left: 1px solid rgba(255, 255, 255, 0.075);
 }
 
 .navi-agent-metrics strong {
@@ -685,7 +758,7 @@
   position: absolute;
   z-index: 6;
 
-  top: calc(49% - 32px);
+  top: calc(49% - 48px);
   left: 50%;
 
   transform: translateX(-50%);
@@ -712,29 +785,34 @@
   top: 49%;
   left: 50%;
 
-  width: 22px;
-  height: 22px;
+  width: 32px;
+  height: 32px;
 
   display: grid;
   place-items: center;
 
   transform: translate(-50%, -50%);
 
-  border: 1px solid rgba(34, 211, 238, 0.76);
+  border: 1px solid rgba(140, 247, 255, 0.78);
   border-radius: 50%;
 
-  background: radial-gradient(
-    circle,
-    rgba(34, 211, 238, 0.3),
-    rgba(34, 211, 238, 0.07) 58%,
-    transparent 76%
-  );
+  background:
+    radial-gradient(circle, rgba(220, 255, 255, 0.98) 0 3%, transparent 12%),
+    radial-gradient(
+      circle,
+      rgba(34, 211, 238, 0.58) 0,
+      rgba(34, 211, 238, 0.22) 25%,
+      rgba(4, 35, 51, 0.9) 58%,
+      rgba(3, 14, 24, 0.92) 72%
+    );
 
   box-shadow:
-    0 0 7px rgba(34, 211, 238, 0.5),
-    0 0 15px rgba(34, 211, 238, 0.19);
+    0 0 4px rgba(180, 250, 255, 0.85),
+    0 0 12px rgba(34, 211, 238, 0.68),
+    0 0 26px rgba(34, 211, 238, 0.24),
+    inset 0 0 8px rgba(34, 211, 238, 0.58);
 
-  opacity: 0.88;
+  opacity: 0.94;
 
   animation: reactor-breathe 4s ease-in-out infinite;
 }
@@ -744,29 +822,70 @@
 
   position: absolute;
 
-  width: 34px;
-  height: 34px;
+  width: 46px;
+  height: 46px;
 
-  border: 1px solid rgba(34, 211, 238, 0.25);
   border-radius: 50%;
-
-  box-shadow: 0 0 8px rgba(34, 211, 238, 0.1);
+  background: conic-gradient(
+    from 8deg,
+    rgba(173, 250, 255, 0.1) 0deg,
+    rgba(110, 244, 255, 0.9) 18deg,
+    rgba(34, 211, 238, 0.16) 38deg,
+    transparent 60deg 82deg,
+    rgba(34, 211, 238, 0.7) 98deg,
+    rgba(34, 211, 238, 0.12) 118deg,
+    transparent 140deg 166deg,
+    rgba(110, 244, 255, 0.8) 184deg,
+    rgba(34, 211, 238, 0.12) 204deg,
+    transparent 226deg 250deg,
+    rgba(34, 211, 238, 0.8) 268deg,
+    rgba(34, 211, 238, 0.12) 288deg,
+    transparent 310deg 336deg,
+    rgba(173, 250, 255, 0.1) 360deg
+  );
+  -webkit-mask: radial-gradient(
+    farthest-side,
+    transparent calc(100% - 1.5px),
+    #000 calc(100% - 1px)
+  );
+  mask: radial-gradient(
+    farthest-side,
+    transparent calc(100% - 1.5px),
+    #000 calc(100% - 1px)
+  );
+  filter: drop-shadow(0 0 5px rgba(34, 211, 238, 0.68));
+  animation: reactor-orbit 18s linear infinite;
 }
 
 .robot-chest-reactor::after {
-  content: none;
+  content: "";
+
+  position: absolute;
+
+  width: 22px;
+  height: 22px;
+
+  border: 1px solid rgba(160, 249, 255, 0.55);
+  border-radius: 50%;
+
+  box-shadow:
+    0 0 7px rgba(34, 211, 238, 0.46),
+    inset 0 0 6px rgba(34, 211, 238, 0.4);
 }
 
 .robot-chest-reactor > span {
-  width: 5px;
-  height: 5px;
+  z-index: 1;
+
+  width: 6px;
+  height: 6px;
 
   border-radius: 50%;
-  background: #d9fcff;
+  background: #e8ffff;
 
   box-shadow:
-    0 0 4px #fff,
-    0 0 9px rgba(34, 211, 238, 0.85);
+    0 0 5px #fff,
+    0 0 12px rgba(130, 247, 255, 1),
+    0 0 22px rgba(34, 211, 238, 0.9);
 }
 
 .state-listening .robot-chest-reactor {
@@ -778,7 +897,7 @@
 }
 
 .state-listening .robot-chest-reactor::before {
-  border-color: rgba(130, 245, 255, 0.58);
+  filter: drop-shadow(0 0 8px rgba(130, 245, 255, 0.95));
 }
 
 /* =========================================================
@@ -804,18 +923,19 @@
 ========================================================= */
 
 .robot-loading {
-  position: fixed;
+  position: absolute;
   inset: 0;
 
   display: grid;
   place-items: center;
 
-  background: var(--navi-bg);
   color: var(--navi-cyan);
 
   font-family: var(--navi-font-mono);
   font-size: 13px;
   letter-spacing: 0.06em;
+  pointer-events: none;
+  text-shadow: 0 0 12px rgba(34, 211, 238, 0.45);
 }
 
 /* =========================================================
@@ -825,12 +945,10 @@
 @keyframes navi-ambient {
   from {
     opacity: 0.58;
-    scale: 0.98;
   }
 
   to {
     opacity: 0.88;
-    scale: 1.035;
   }
 }
 
@@ -842,6 +960,12 @@
 
   50% {
     filter: brightness(1.2);
+  }
+}
+
+@keyframes reactor-orbit {
+  to {
+    transform: rotate(360deg);
   }
 }
 
@@ -900,10 +1024,9 @@
   }
 
   .navi-agent-name {
-    font-size: 16px;
+    font-size: 15px;
   }
 
-  .navi-agent-role,
   .navi-task-value {
     font-size: 12px;
   }
@@ -917,7 +1040,8 @@
   }
 
   .navi-metric-label {
-    font-size: 10px;
+    font-size: 9px;
+    letter-spacing: 0.04em;
   }
 }
 
@@ -974,7 +1098,7 @@
   .robot-glow {
     top: 40%;
     width: 110vw;
-    filter: blur(35px);
+    filter: blur(20px);
   }
 
   .robot-particles {
@@ -1013,13 +1137,18 @@
     border-radius: 11px;
     background: rgba(5, 15, 26, 0.91);
 
-    -webkit-backdrop-filter: blur(10px);
-    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(6px);
+    backdrop-filter: blur(6px);
   }
 
   .navi-agent-card-top {
+    display: flex;
     justify-content: center;
     gap: 0;
+  }
+
+  .navi-agent-heading {
+    display: contents;
   }
 
   .navi-agent-icon {
@@ -1027,7 +1156,11 @@
     height: 24px;
 
     border-radius: 7px;
-    font-size: 16px;
+  }
+
+  .navi-agent-icon svg {
+    width: 16px;
+    height: 16px;
   }
 
   .navi-agent-status,
@@ -1050,19 +1183,29 @@
   }
 
   .navi-chest-label {
-    top: calc(47% - 28px);
+    top: calc(47% - 39px);
     font-size: 10px;
   }
 
   .robot-chest-reactor {
     top: 47%;
+    width: 26px;
+    height: 26px;
+  }
+
+  .robot-chest-reactor::before {
+    width: 38px;
+    height: 38px;
+  }
+
+  .robot-chest-reactor::after {
     width: 18px;
     height: 18px;
   }
 
-  .robot-chest-reactor::before {
-    width: 28px;
-    height: 28px;
+  .robot-chest-reactor > span {
+    width: 5px;
+    height: 5px;
   }
 }
 
