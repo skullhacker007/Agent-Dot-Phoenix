@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
-import "./VisionChat.css";
+import type { TeamId } from "@/lib/agent-monitoring";
+import "./AgentChat.css";
 
 type ChatMessage = {
   id: number;
@@ -10,13 +11,16 @@ type ChatMessage = {
   content: string;
 };
 
-type VisionChatProps = {
+type AgentChatProps = {
+  teamId: TeamId;
+  teamName: string;
+  teamRole: string;
   models: string[];
   assignedModel: string | null;
   loading: boolean;
 };
 
-function getErrorMessage(payload: unknown) {
+function getErrorMessage(payload: unknown, teamName: string) {
   if (
     typeof payload === "object" &&
     payload !== null &&
@@ -25,21 +29,26 @@ function getErrorMessage(payload: unknown) {
   ) {
     return payload.error;
   }
-  return "Vision could not process the request.";
+  return `${teamName} could not process the request.`;
 }
 
-export default function VisionChat({
+export default function AgentChat({
+  teamId,
+  teamName,
+  teamRole,
   models,
   assignedModel,
   loading: modelsLoading,
-}: VisionChatProps) {
+}: AgentChatProps) {
   const assignedModelAvailable =
     assignedModel !== null && models.includes(assignedModel);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [draft, setDraft] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [open, setOpen] = useState(false);
   const nextId = useRef(0);
+  const submitting = useRef(false);
   const activeRequest = useRef<AbortController | null>(null);
 
   useEffect(
@@ -52,9 +61,10 @@ export default function VisionChat({
   async function sendMessage(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const content = draft.trim();
-    if (!content || busy || !assignedModelAvailable) {
+    if (!content || busy || submitting.current || !assignedModelAvailable) {
       return;
     }
+    submitting.current = true;
 
     const userMessage: ChatMessage = {
       id: nextId.current++,
@@ -82,10 +92,14 @@ export default function VisionChat({
     setBusy(true);
 
     try {
-      const response = await fetch("/api/agents/vision/chat", {
+      const response = await fetch("/api/agents/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: conversation }),
+        body: JSON.stringify({
+          teamId,
+          messages: conversation,
+          modelId: assignedModel,
+        }),
         signal: controller.signal,
       });
 
@@ -96,10 +110,10 @@ export default function VisionChat({
         } catch {
           payload = null;
         }
-        throw new Error(getErrorMessage(payload));
+        throw new Error(getErrorMessage(payload, teamName));
       }
       if (!response.body) {
-        throw new Error("Vision did not return a response stream.");
+        throw new Error(`${teamName} did not return a response stream.`);
       }
 
       const reader = response.body.getReader();
@@ -120,7 +134,7 @@ export default function VisionChat({
         try {
           payload = JSON.parse(data);
         } catch (cause) {
-          throw new Error("Vision returned an invalid response stream.", {
+          throw new Error(`${teamName} returned an invalid response stream.`, {
             cause,
           });
         }
@@ -165,7 +179,7 @@ export default function VisionChat({
       }
 
       if (!responseText) {
-        throw new Error("Vision returned an empty response. Please try again.");
+        throw new Error(`${teamName} returned an empty response. Please try again.`);
       }
     } catch (caught) {
       if (caught instanceof Error && caught.name === "AbortError") return;
@@ -178,9 +192,10 @@ export default function VisionChat({
       setError(
         caught instanceof Error
           ? caught.message
-          : "Vision could not process the request.",
+          : `${teamName} could not process the request.`,
       );
     } finally {
+      submitting.current = false;
       if (activeRequest.current === controller) {
         activeRequest.current = null;
         setBusy(false);
@@ -189,36 +204,41 @@ export default function VisionChat({
   }
 
   return (
-    <section className="vision-chat" aria-labelledby="vision-chat-heading">
-      <div className="vision-chat-heading">
-        <div>
-          <p className="vision-chat-eyebrow">VISION ASSISTANT</p>
-          <h2 id="vision-chat-heading">Financial analysis</h2>
+    <aside className={`agent-chat-widget ${open ? "is-open" : ""}`}>
+      {open ? (
+    <section className="agent-chat" aria-label={`${teamName} assistant chat`}>
+      <div className="agent-chat-heading">
+        <p className="agent-chat-eyebrow">{teamName} ASSISTANT</p>
+        <div className="agent-chat-heading-actions">
+          <button
+            aria-label={`Minimize ${teamName} chat`}
+            className="agent-chat-close"
+            onClick={() => setOpen(false)}
+            type="button"
+          >
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M5 12h14" />
+            </svg>
+          </button>
         </div>
-        {assignedModel && (
-          <div className="vision-chat-model">
-            <span>Assigned model</span>
-            <strong>{assignedModel}</strong>
-          </div>
-        )}
       </div>
 
-      <div className="vision-chat-transcript" role="log" aria-live="polite">
+      <div className="agent-chat-transcript" role="log" aria-live="polite">
         {messages.length === 0 ? (
-          <p className="vision-chat-empty">
+          <p className="agent-chat-empty">
             {assignedModelAvailable
-              ? "Ask Vision to analyze a financial question or scenario."
+              ? `Ask ${teamName} about ${teamRole.toLowerCase()}.`
               : modelsLoading
                 ? "Loading available models…"
-                : "Vision's assigned model is not currently available."}
+                : "Select an available NVIDIA model in settings to start chatting."}
           </p>
         ) : (
           messages.map((message) => (
             <article
-              className={`vision-chat-message is-${message.role}`}
+              className={`agent-chat-message is-${message.role}`}
               key={message.id}
             >
-              <span>{message.role === "user" ? "You" : "Vision"}</span>
+              <span>{message.role === "user" ? "You" : teamName}</span>
               <p>
                 {message.content ||
                   (busy && message.role === "assistant" ? "Thinking…" : "")}
@@ -229,26 +249,32 @@ export default function VisionChat({
       </div>
 
       {error && (
-        <p className="vision-chat-error" role="alert">
+        <p className="agent-chat-error" role="alert">
           {error}
         </p>
       )}
 
-      <form className="vision-chat-form" onSubmit={sendMessage}>
-        <label className="vision-chat-input-label" htmlFor="vision-chat-input">
-          Message Vision
+      <form className="agent-chat-form" onSubmit={sendMessage}>
+        <label className="agent-chat-input-label" htmlFor="agent-chat-input">
+          Message {teamName}
         </label>
         <textarea
-          id="vision-chat-input"
+          id="agent-chat-input"
           maxLength={4000}
           onChange={(event) => setDraft(event.target.value)}
-          placeholder="Ask about a financial question or scenario..."
+          placeholder={`Message ${teamName} about ${teamRole.toLowerCase()}...`}
           rows={2}
           value={draft}
           disabled={busy}
         />
-        <div className="vision-chat-form-footer">
-          <span>Informational analysis only · Avoid sharing sensitive data</span>
+        <div className="agent-chat-form-footer">
+          <span>
+            {teamId === "VISION"
+              ? "Informational analysis only · Avoid sharing sensitive data"
+              : teamId === "ULTRON"
+                ? "Defensive cybersecurity assistance only"
+                : "Avoid sharing sensitive data"}
+          </span>
           <button
             type="submit"
             disabled={
@@ -258,10 +284,27 @@ export default function VisionChat({
               !draft.trim()
             }
           >
-            {busy ? "Analyzing..." : "Send"}
+            {busy ? "Thinking..." : "Send"}
           </button>
         </div>
       </form>
     </section>
+      ) : (
+        <button
+          aria-expanded={open}
+          aria-label={`Open ${teamName} chat`}
+          className="agent-chat-launcher"
+          onClick={() => setOpen(true)}
+          type="button"
+        >
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M20 11.5a7.5 7.5 0 0 1-7.5 7.5H5l1.6-3.2A7.5 7.5 0 1 1 20 11.5Z" />
+            <path d="M8.5 11.5h.01m3.49 0h.01m3.49 0h.01" />
+          </svg>
+          <span>Chat with {teamName}</span>
+          <span className={`agent-chat-launcher-status ${assignedModelAvailable ? "is-ready" : ""}`} />
+        </button>
+      )}
+    </aside>
   );
 }

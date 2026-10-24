@@ -8,6 +8,8 @@ import {
   dashboardResponseSchema,
 } from "@/lib/agent-monitoring";
 import type { TeamDashboard } from "@/lib/agent-monitoring";
+import { agentModelsResponseSchema } from "@/lib/agent-models";
+import { useAgentModelPreferences } from "@/lib/agent-model-preferences";
 import "./RobotAvatar.css";
 
 const Spline = dynamic(() => import("@splinetool/react-spline"), {
@@ -103,6 +105,10 @@ export default function RobotAvatar() {
   const [visibleAgentCount, setVisibleAgentCount] = useState(0);
   const [teamDashboards, setTeamDashboards] = useState<TeamDashboard[]>([]);
   const [monitoringLoading, setMonitoringLoading] = useState(true);
+  const [visionDefaultModel, setVisionDefaultModel] = useState<string | null>(
+    null,
+  );
+  const modelPreferences = useAgentModelPreferences();
 
   useEffect(() => {
     const idleWindow = window as IdleCallbackWindow;
@@ -169,6 +175,32 @@ export default function RobotAvatar() {
   }, []);
 
   useEffect(() => {
+    let active = true;
+
+    void fetch("/api/agents/models?teamId=VISION", { cache: "no-store" })
+      .then(async (response) => {
+        if (!response.ok) {
+          throw new Error(`Vision model discovery returned ${response.status}.`);
+        }
+        const parsed = agentModelsResponseSchema.safeParse(
+          await response.json(),
+        );
+        if (!parsed.success) {
+          throw new Error("Vision model discovery returned invalid data.");
+        }
+        if (active) setVisionDefaultModel(parsed.data.assignedModel);
+      })
+      .catch((error: unknown) => {
+        if (!active) return;
+        console.error("Unable to load Vision's default model for its card.", error);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
     if (!splineLoaded || visibleAgentCount >= TEAM_DEFINITIONS.length) return;
 
     const delay = visibleAgentCount === 0 ? 700 : 220;
@@ -228,6 +260,11 @@ export default function RobotAvatar() {
               key={agent.agentId}
               team={agent}
               dashboard={teamDashboards.find(({ id }) => id === agent.id)}
+              assignedModel={
+                modelPreferences[agent.id] ??
+                teamDashboards.find(({ id }) => id === agent.id)?.assignedModel ??
+                null
+              }
               loading={monitoringLoading}
               revealed={
                 TEAM_DEFINITIONS.findIndex(({ id }) => id === agent.id) <
@@ -247,6 +284,12 @@ export default function RobotAvatar() {
               key={agent.agentId}
               team={agent}
               dashboard={teamDashboards.find(({ id }) => id === agent.id)}
+              assignedModel={
+                modelPreferences[agent.id] ??
+                teamDashboards.find(({ id }) => id === agent.id)?.assignedModel ??
+                (agent.id === "VISION" ? visionDefaultModel : null) ??
+                null
+              }
               loading={monitoringLoading}
               revealed={
                 TEAM_DEFINITIONS.findIndex(({ id }) => id === agent.id) <
@@ -401,6 +444,7 @@ function NaviHeader() {
 function AgentCard({
   team,
   dashboard,
+  assignedModel,
   loading,
   revealed,
   selected,
@@ -408,6 +452,7 @@ function AgentCard({
 }: {
   team: (typeof TEAM_DEFINITIONS)[number];
   dashboard: TeamDashboard | undefined;
+  assignedModel: string | null;
   loading: boolean;
   revealed: boolean;
   selected: boolean;
@@ -416,8 +461,10 @@ function AgentCard({
   const status = dashboard?.status ?? (loading ? "loading" : "idle");
   const statusLabel = dashboard?.status ?? (loading ? "Loading" : "Idle");
   const visibleMembers = dashboard?.agents.slice(0, 2) ?? [];
-  const modelSummary = dashboard?.models.length
-    ? dashboard.models.join(", ")
+  const modelSummary = assignedModel
+    ? assignedModel
+    : dashboard?.models.length
+      ? dashboard.models.join(", ")
     : "No Model assigned";
   const inputUsage = dashboard?.tokens.input ?? null;
   const outputUsage = dashboard?.tokens.output ?? null;

@@ -59,6 +59,7 @@ const teamDashboardSchema = z.object({
     input: z.number().int().nonnegative().nullable(),
     output: z.number().int().nonnegative().nullable(),
   }),
+  assignedModel: z.string().min(1).nullable(),
   models: z.array(z.string()),
   agents: z.array(
     z.object({

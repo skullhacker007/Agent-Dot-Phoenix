@@ -4,6 +4,7 @@ import {
   resolveAgentStatus,
   resolveTeamStatus,
 } from "@/lib/agent-monitoring";
+import { DEFAULT_VISION_MODEL_ID } from "@/lib/nvidia";
 import { getPrisma } from "@/server/database/prisma";
 
 const reportedStatuses = {
@@ -108,9 +109,12 @@ export async function getMonitoringDashboard() {
           .filter((model): model is string => model !== null),
       ),
     ];
+    const assignedModel =
+      team.id === "VISION" ? DEFAULT_VISION_MODEL_ID : null;
 
     return {
       id: team.id,
+      assignedModel,
       status: resolveTeamStatus(members.map(({ status }) => status)),
       counts,
       tokens: {

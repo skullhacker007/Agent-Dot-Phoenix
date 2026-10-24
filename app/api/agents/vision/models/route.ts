@@ -1,5 +1,5 @@
 import {
-  ASSIGNED_VISION_MODEL_ID,
+  DEFAULT_VISION_MODEL_ID,
   listNvidiaModels,
   NvidiaConfigurationError,
 } from "@/lib/nvidia";
@@ -11,8 +11,8 @@ export async function GET(request: Request) {
     return Response.json(
       {
         models,
-        assignedModel: models.includes(ASSIGNED_VISION_MODEL_ID)
-          ? ASSIGNED_VISION_MODEL_ID
+        assignedModel: models.includes(DEFAULT_VISION_MODEL_ID)
+          ? DEFAULT_VISION_MODEL_ID
           : null,
       },
       { headers: { "Cache-Control": "no-store" } },
@@ -20,7 +20,7 @@ export async function GET(request: Request) {
   } catch (error) {
     if (error instanceof NvidiaConfigurationError) {
       return Response.json(
-        { error: "Vision model provider is not configured." },
+        { error: error.message },
         { status: 503, headers: { "Cache-Control": "no-store" } },
       );
     }

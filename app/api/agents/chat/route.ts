@@ -1,11 +1,11 @@
 import { z } from "zod";
 import { isSameOriginRequest } from "@/lib/agent-admin-auth";
 import {
-  ASSIGNED_VISION_MODEL_ID,
   listNvidiaModels,
   NvidiaConfigurationError,
-  streamVisionCompletion,
+  streamNvidiaCompletion,
 } from "@/lib/nvidia";
+import { TEAM_DEFINITIONS, type TeamId } from "@/lib/agent-monitoring";
 import type {
   ChatCompletionChunk,
   ChatCompletionMessageParam,
@@ -16,6 +16,8 @@ const MAX_REQUEST_BYTES = 32 * 1024;
 
 const requestSchema = z
   .object({
+    teamId: z.enum(["JARVIS", "FRIDAY", "ULTRON", "VISION"]),
+    modelId: z.string().trim().min(1).max(200),
     messages: z
       .array(
         z.object({
@@ -39,9 +41,14 @@ const requestSchema = z
     }
   });
 
-const systemMessage: ChatCompletionMessageParam = {
-  role: "system",
-  content:
+const teamInstructions: Record<TeamId, string> = {
+  JARVIS:
+    "You are J.A.R.V.I.S, a strategic intelligence assistant. Give concise, structured, evidence-aware advice, state assumptions, and distinguish known facts from estimates. Never claim access to live systems or data unless provided in the conversation.",
+  FRIDAY:
+    "You are F.R.I.D.A.Y, a business development assistant. Help with ethical prospect research, customer communication, proposals, and growth planning. Be practical, professional, and transparent about assumptions; never fabricate research or make deceptive claims.",
+  ULTRON:
+    "You are Ultron, a defensive cybersecurity solutions assistant. Focus on secure design, authorized defensive assessment, detection, incident response, and remediation. Do not provide instructions, code, or operational steps to compromise systems, evade detection, steal credentials, deploy malware, or access systems without authorization. Keep security guidance bounded to systems the user owns or is authorized to protect.",
+  VISION:
     "You are Vision, a financial analytics assistant. Provide clear, structured analysis, state assumptions, distinguish facts from estimates, and never claim access to live financial data unless it is included in the conversation. Your responses are informational and are not personalized financial advice.",
 };
 
@@ -99,7 +106,7 @@ export async function POST(request: Request) {
         { status: 400 },
       );
     }
-    console.error("Unable to read the Vision chat request.", error);
+    console.error("Unable to read the agent chat request.", error);
     return Response.json(
       { error: "Unable to read the chat request." },
       { status: 400 },
@@ -117,7 +124,7 @@ export async function POST(request: Request) {
   } catch (error) {
     if (error instanceof NvidiaConfigurationError) {
       return Response.json(
-        { error: "Vision model provider is not configured." },
+        { error: error.message },
         { status: 503 },
       );
     }
@@ -129,7 +136,7 @@ export async function POST(request: Request) {
       typeof error.status === "number"
         ? error.status
         : undefined;
-    console.error("Unable to verify Vision's assigned NVIDIA model.", {
+    console.error("Unable to verify the selected NVIDIA model.", {
       status,
       message:
         error instanceof Error ? error.message : "Unknown provider error.",
@@ -139,26 +146,35 @@ export async function POST(request: Request) {
         error:
           status === 401 || status === 403
             ? "NVIDIA rejected the server credentials."
-            : "Unable to verify Vision's assigned model with NVIDIA.",
+            : "Unable to verify the selected model with NVIDIA.",
       },
       { status: status === 401 || status === 403 ? 503 : 502 },
     );
   }
 
-  if (!availableModels.includes(ASSIGNED_VISION_MODEL_ID)) {
+  if (!availableModels.includes(parsed.data.modelId)) {
     return Response.json(
-      { error: "Vision's assigned model is not currently available." },
-      { status: 503 },
+      { error: "The selected model is not currently available from NVIDIA." },
+      { status: 400 },
     );
+  }
+
+  const team = TEAM_DEFINITIONS.find(({ id }) => id === parsed.data.teamId);
+  if (!team) {
+    return Response.json({ error: "Unknown agent team." }, { status: 400 });
   }
 
   let completion: Stream<ChatCompletionChunk>;
   try {
     const messages: ChatCompletionMessageParam[] = [
-      systemMessage,
+      { role: "system", content: teamInstructions[parsed.data.teamId] },
       ...parsed.data.messages,
     ];
-    completion = await streamVisionCompletion(messages, request.signal);
+    completion = await streamNvidiaCompletion(
+      parsed.data.modelId,
+      messages,
+      request.signal,
+    );
   } catch (error) {
     const status =
       typeof error === "object" &&
@@ -167,7 +183,7 @@ export async function POST(request: Request) {
       typeof error.status === "number"
         ? error.status
         : undefined;
-    console.error("Unable to start Vision's NVIDIA completion.", {
+    console.error(`Unable to start ${team.name}'s NVIDIA completion.`, {
       status,
       message:
         error instanceof Error ? error.message : "Unknown provider error.",
@@ -177,7 +193,7 @@ export async function POST(request: Request) {
         error:
           status === 401 || status === 403
             ? "NVIDIA rejected the server credentials."
-            : "Vision could not connect to its model provider.",
+            : `${team.name} could not connect to its model provider.`,
       },
       { status: 502 },
     );
@@ -205,12 +221,12 @@ export async function POST(request: Request) {
           typeof error.status === "number"
             ? error.status
             : undefined;
-        console.error("Vision NVIDIA response stream failed.", {
+        console.error(`${team.name} NVIDIA response stream failed.`, {
           status,
           message:
             error instanceof Error ? error.message : "Unknown provider error.",
         });
-        controller.error(new Error("Vision's response stream was interrupted."));
+        controller.error(new Error(`${team.name}'s response stream was interrupted.`));
       }
     },
     async cancel() {

@@ -213,9 +213,7 @@
 }
 
 .agent-roster-card,
-.agent-task-card,
-.agent-management-form,
-.agent-admin-signin {
+.agent-task-card {
   border: 1px solid rgba(148, 163, 184, 0.16);
   border-radius: 13px;
   background: rgba(8, 19, 32, 0.9);
@@ -234,8 +232,6 @@
 }
 
 .agent-roster-heading h3,
-.agent-management-form h3,
-.agent-admin-signin h3,
 .agent-task-card h3 {
   margin: 0;
   color: #e6f1ff;
@@ -314,81 +310,11 @@
   border-radius: 12px;
 }
 
-.agent-team-management {
-  padding-bottom: 50px;
-}
-
-.agent-team-quiet-button,
 .agent-team-primary-button {
   border: 1px solid rgba(34, 211, 238, 0.25);
   border-radius: 8px;
   color: #a5f3fc;
   cursor: pointer;
-}
-
-.agent-team-quiet-button {
-  padding: 8px 12px;
-  background: transparent;
-  font-size: 12px;
-}
-
-.agent-team-quiet-button:hover {
-  background: rgba(34, 211, 238, 0.08);
-}
-
-.agent-management-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  align-items: start;
-  gap: 14px;
-}
-
-.agent-management-form,
-.agent-admin-signin {
-  display: grid;
-  gap: 14px;
-  padding: 20px;
-}
-
-.agent-management-form label,
-.agent-admin-signin label {
-  display: grid;
-  gap: 7px;
-  color: #95a8bd;
-  font-size: 11px;
-}
-
-.agent-management-form input,
-.agent-management-form textarea,
-.agent-management-form select,
-.agent-admin-signin input {
-  width: 100%;
-  min-width: 0;
-  padding: 10px 11px;
-  border: 1px solid rgba(148, 163, 184, 0.22);
-  border-radius: 7px;
-  outline: none;
-  background: rgba(3, 10, 18, 0.85);
-  color: #e6f1ff;
-  font: 12px var(--font-inter), sans-serif;
-}
-
-.agent-management-form textarea {
-  resize: vertical;
-  line-height: 1.5;
-}
-
-.agent-management-form input:focus,
-.agent-management-form textarea:focus,
-.agent-management-form select:focus,
-.agent-admin-signin input:focus {
-  border-color: rgba(34, 211, 238, 0.7);
-}
-
-.agent-form-inline {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
 }
 
 .agent-team-primary-button {
@@ -405,41 +331,6 @@
 .agent-team-primary-button:disabled {
   cursor: wait;
   opacity: 0.6;
-}
-
-.agent-queue-note {
-  margin: 0;
-  color: #8295aa;
-  font-size: 11px;
-  line-height: 1.5;
-}
-
-.agent-action-message {
-  margin: 12px 0 0;
-  font-size: 12px;
-}
-
-.agent-action-message.is-error {
-  color: #fca5a5;
-}
-
-.agent-action-message.is-success {
-  color: #a7f3d0;
-}
-
-.agent-admin-signin {
-  grid-template-columns: minmax(0, 1fr) minmax(220px, 0.7fr) auto;
-  align-items: end;
-}
-
-.agent-admin-signin p {
-  margin: 7px 0 0;
-  color: #95a8bd;
-  font-size: 12px;
-}
-
-.agent-admin-signin .agent-action-message {
-  grid-column: 1 / -1;
 }
 
 @media (max-width: 760px) {
@@ -464,13 +355,6 @@
     grid-column: 1 / -1;
   }
 
-  .agent-management-grid {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .agent-admin-signin {
-    grid-template-columns: minmax(0, 1fr);
-  }
 }
 
 @media (max-width: 420px) {

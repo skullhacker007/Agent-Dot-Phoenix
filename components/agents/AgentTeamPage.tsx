@@ -7,9 +7,13 @@ import {
   dashboardResponseSchema,
 } from "@/lib/agent-monitoring";
 import type { TeamDashboard, TeamId } from "@/lib/agent-monitoring";
-import { visionModelsResponseSchema } from "@/lib/vision-models";
-import VisionChat from "./VisionChat";
-import VisionModelSettings from "./VisionModelSettings";
+import { agentModelsResponseSchema } from "@/lib/agent-models";
+import {
+  saveAgentModelPreference,
+  useAgentModelPreferences,
+} from "@/lib/agent-model-preferences";
+import AgentChat from "./AgentChat";
+import AgentModelSettings from "./AgentModelSettings";
 import "./AgentTeamPage.css";
 
 type AgentTeamPageProps = {
@@ -17,39 +21,13 @@ type AgentTeamPageProps = {
   view?: "dashboard" | "settings";
 };
 
-type AgentForm = {
-  name: string;
-  role: string;
-  instructions: string;
-  provider: string;
-  model: string;
-};
-
-type TaskForm = {
-  title: string;
-  description: string;
-  agentId: string;
-};
-
-type VisionModelState = {
+type AgentModelState = {
   teamId: TeamId;
   status: "loading" | "loaded" | "unavailable";
   models: string[];
   assignedModel: string | null;
-};
-
-const EMPTY_AGENT_FORM: AgentForm = {
-  name: "",
-  role: "",
-  instructions: "",
-  provider: "",
-  model: "",
-};
-
-const EMPTY_TASK_FORM: TaskForm = {
-  title: "",
-  description: "",
-  agentId: "",
+  error: string;
+  saving: boolean;
 };
 
 export default function AgentTeamPage({
@@ -59,19 +37,9 @@ export default function AgentTeamPage({
   const team = TEAM_DEFINITIONS.find(({ id }) => id === teamId);
   const [dashboard, setDashboard] = useState<TeamDashboard>();
   const [loading, setLoading] = useState(true);
-  const [visionModelState, setVisionModelState] =
-    useState<VisionModelState | null>(null);
-  const [adminAuthenticated, setAdminAuthenticated] = useState<boolean | null>(
-    null,
-  );
-  const [adminToken, setAdminToken] = useState("");
-  const [loginError, setLoginError] = useState("");
-  const [agentForm, setAgentForm] = useState(EMPTY_AGENT_FORM);
-  const [taskForm, setTaskForm] = useState(EMPTY_TASK_FORM);
-  const [agentSubmitting, setAgentSubmitting] = useState(false);
-  const [taskSubmitting, setTaskSubmitting] = useState(false);
-  const [actionError, setActionError] = useState("");
-  const [actionNotice, setActionNotice] = useState("");
+  const [agentModelState, setAgentModelState] =
+    useState<AgentModelState | null>(null);
+  const modelPreferences = useAgentModelPreferences();
 
   const acceptDashboard = useCallback(
     (payload: unknown) => {
@@ -87,42 +55,33 @@ export default function AgentTeamPage({
     [teamId],
   );
 
-  const refreshDashboard = useCallback(async () => {
-    const response = await fetch("/api/monitoring/teams", {
-      cache: "no-store",
-    });
-    if (!response.ok) {
-      throw new Error(`Monitoring service returned ${response.status}.`);
-    }
-    acceptDashboard(await response.json());
-  }, [acceptDashboard]);
-
-  const currentVisionModelState =
-    visionModelState?.teamId === teamId ? visionModelState : null;
-  const visionModelsLoading =
-    teamId === "VISION" &&
-    (currentVisionModelState === null ||
-      currentVisionModelState.status === "loading");
-  const availableVisionModels =
-    currentVisionModelState?.status === "loaded"
-      ? currentVisionModelState.models
-      : null;
-  const assignedVisionModel =
-    currentVisionModelState?.status === "loaded"
-      ? currentVisionModelState.assignedModel
-      : null;
+  const currentModelState =
+    agentModelState?.teamId === teamId ? agentModelState : null;
+  const modelsLoading =
+    currentModelState === null || currentModelState.status === "loading";
+  const availableModels =
+    currentModelState?.status === "loaded" ? currentModelState.models : null;
+  const assignedModel =
+    modelPreferences[teamId] ??
+    (currentModelState?.status === "loaded"
+      ? currentModelState.assignedModel
+      : null);
 
   useEffect(() => {
     let active = true;
     const eventSource = new EventSource("/api/monitoring/teams/stream");
-    const sessionRequest =
-      view === "settings"
-        ? fetch("/api/admin/session", { cache: "no-store" })
-        : null;
-    const visionModelsRequest =
-      teamId === "VISION"
-        ? fetch("/api/agents/vision/models", { cache: "no-store" })
-        : null;
+    const modelsRequest = fetch(
+      `/api/agents/models?teamId=${encodeURIComponent(teamId)}`,
+      { cache: "no-store" },
+    );
+    setAgentModelState({
+      teamId,
+      status: "loading",
+      models: [],
+      assignedModel: null,
+      error: "",
+      saving: false,
+    });
 
     eventSource.onmessage = (event) => {
       if (!active) return;
@@ -138,54 +97,44 @@ export default function AgentTeamPage({
       if (active) setLoading(false);
     };
 
-    void sessionRequest
-      ?.then(async (response) => {
-        const result = (await response.json()) as {
-          authenticated?: boolean;
-          error?: string;
-        };
-        if (!response.ok)
-          throw new Error(result.error ?? "Unable to check admin session.");
-        if (active) setAdminAuthenticated(result.authenticated === true);
-      })
-      .catch((error: unknown) => {
-        if (!active) return;
-        setAdminAuthenticated(false);
-        setLoginError(
-          error instanceof Error
-            ? error.message
-            : "Unable to check admin session.",
-        );
-      });
-
-    void visionModelsRequest
-      ?.then(async (response) => {
+    void modelsRequest
+      .then(async (response) => {
         if (!response.ok) {
-          throw new Error(`Vision model discovery returned ${response.status}.`);
+          const result = (await response.json()) as { error?: string };
+          throw new Error(
+            result.error ?? `Model discovery returned ${response.status}.`,
+          );
         }
-        const parsed = visionModelsResponseSchema.safeParse(
+        const parsed = agentModelsResponseSchema.safeParse(
           await response.json(),
         );
         if (!parsed.success) {
-          throw new Error("Vision model discovery returned invalid data.");
+          throw new Error("Model discovery returned invalid data.");
         }
         if (active) {
-          setVisionModelState({
+          setAgentModelState({
             teamId,
             status: "loaded",
             models: parsed.data.models,
             assignedModel: parsed.data.assignedModel,
+            error: "",
+            saving: false,
           });
         }
       })
       .catch((error: unknown) => {
-        console.error("Unable to load Vision's assigned model.", error);
+        console.error(`Unable to load ${teamId}'s model settings.`, error);
         if (active) {
-          setVisionModelState({
+          setAgentModelState({
             teamId,
             status: "unavailable",
             models: [],
             assignedModel: null,
+            error:
+              error instanceof Error
+                ? error.message
+                : "Unable to load available models.",
+            saving: false,
           });
         }
       });
@@ -201,113 +150,38 @@ export default function AgentTeamPage({
   const agents = dashboard?.agents ?? [];
   const queuedTasks = dashboard?.tasks ?? [];
 
-  async function signIn(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setLoginError("");
+  async function saveModel(modelId: string) {
+    setAgentModelState((current) =>
+      current?.teamId === teamId
+        ? { ...current, saving: true, error: "" }
+        : current,
+    );
     try {
-      const response = await fetch("/api/admin/session", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token: adminToken }),
-      });
-      const result = (await response.json()) as {
-        authenticated?: boolean;
-        error?: string;
-      };
-      if (!response.ok) {
-        throw new Error(result.error ?? "Unable to sign in.");
+      if (!availableModels?.includes(modelId)) {
+        throw new Error("Select a model currently available from NVIDIA.");
       }
-      setAdminAuthenticated(true);
-      setAdminToken("");
+      saveAgentModelPreference(teamId, modelId);
+      setAgentModelState((current) =>
+        current?.teamId === teamId
+          ? { ...current, assignedModel: modelId, saving: false, error: "" }
+          : current,
+      );
+      setDashboard((current) =>
+        current ? { ...current, assignedModel: modelId } : current,
+      );
     } catch (error) {
-      setLoginError(
-        error instanceof Error ? error.message : "Unable to sign in.",
+      setAgentModelState((current) =>
+        current?.teamId === teamId
+          ? {
+              ...current,
+              saving: false,
+              error:
+                error instanceof Error
+                  ? error.message
+                  : "Unable to save the model assignment.",
+            }
+          : current,
       );
-    }
-  }
-
-  async function signOut() {
-    setActionError("");
-    try {
-      const response = await fetch("/api/admin/session", { method: "DELETE" });
-      if (!response.ok) throw new Error("Unable to sign out.");
-      setAdminAuthenticated(false);
-    } catch (error) {
-      setActionError(
-        error instanceof Error ? error.message : "Unable to sign out.",
-      );
-    }
-  }
-
-  async function createAgent(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setAgentSubmitting(true);
-    setActionError("");
-    setActionNotice("");
-    try {
-      const response = await fetch(
-        `/api/monitoring/teams/${teamId.toLowerCase()}/agents`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            ...agentForm,
-            provider: agentForm.provider || undefined,
-            model: agentForm.model || undefined,
-          }),
-        },
-      );
-      const result = (await response.json()) as {
-        error?: string;
-        agent?: { name: string };
-      };
-      if (!response.ok)
-        throw new Error(result.error ?? "Unable to create agent.");
-      setAgentForm(EMPTY_AGENT_FORM);
-      setActionNotice(
-        `${result.agent?.name ?? "Agent"} added to ${team?.name ?? teamId}.`,
-      );
-      await refreshDashboard();
-    } catch (error) {
-      setActionError(
-        error instanceof Error ? error.message : "Unable to create agent.",
-      );
-    } finally {
-      setAgentSubmitting(false);
-    }
-  }
-
-  async function queueTask(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setTaskSubmitting(true);
-    setActionError("");
-    setActionNotice("");
-    try {
-      const response = await fetch(
-        `/api/monitoring/teams/${teamId.toLowerCase()}/tasks`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            ...taskForm,
-            agentId: taskForm.agentId || null,
-          }),
-        },
-      );
-      const result = (await response.json()) as { error?: string };
-      if (!response.ok)
-        throw new Error(result.error ?? "Unable to queue task.");
-      setTaskForm(EMPTY_TASK_FORM);
-      setActionNotice(
-        "Task saved as queued. It will wait until a worker is connected.",
-      );
-      await refreshDashboard();
-    } catch (error) {
-      setActionError(
-        error instanceof Error ? error.message : "Unable to queue task.",
-      );
-    } finally {
-      setTaskSubmitting(false);
     }
   }
 
@@ -384,316 +258,132 @@ export default function AgentTeamPage({
             <div className="agent-team-stat agent-team-stat-models">
               <span>Models</span>
               <strong>
-                {teamId === "VISION"
-                  ? visionModelsLoading
-                    ? "Loading available model…"
-                    : assignedVisionModel ?? "Assigned model unavailable"
-                  : dashboard?.models.length
+                {assignedModel ??
+                  dashboard?.assignedModel ??
+                  (dashboard?.models.length
                     ? dashboard.models.join(", ")
-                    : "No Model assigned"}
+                    : "No Model assigned")}
               </strong>
             </div>
           </section>
         )}
       </header>
 
-      {teamId === "VISION" && view === "settings" && (
-        <VisionModelSettings
-          assignedModel={assignedVisionModel}
-          loading={visionModelsLoading}
-          models={availableVisionModels}
+      {view === "settings" && (
+        <AgentModelSettings
+          key={`${teamId}-${assignedModel ?? "unassigned"}`}
+          assignedModel={assignedModel}
+          error={currentModelState?.error ?? ""}
+          loading={modelsLoading}
+          models={availableModels}
+          onSave={saveModel}
+          saving={currentModelState?.saving ?? false}
+          teamName={team.name}
         />
       )}
 
-      {teamId === "VISION" && view === "dashboard" && (
-        <VisionChat
-          assignedModel={assignedVisionModel}
-          loading={visionModelsLoading}
-          models={availableVisionModels ?? []}
+      {view === "dashboard" && (
+        <AgentChat
+          assignedModel={assignedModel}
+          loading={modelsLoading}
+          models={availableModels ?? []}
+          teamId={teamId}
+          teamName={team.name}
+          teamRole={team.role}
         />
       )}
 
-      {view === "settings" && <section className="agent-team-section">
-        <div className="agent-team-section-heading">
-          <div>
-            <p className="agent-team-eyebrow">TEAM ROSTER</p>
-            <h2>Sub-agents</h2>
-          </div>
-          <span>{agents.length} registered</span>
-        </div>
-        {agents.length ? (
-          <div className="agent-team-roster">
-            {agents.map((agent) => (
-              <article className="agent-roster-card" key={agent.id}>
-                <div className="agent-roster-heading">
-                  <div>
-                    <h3>{agent.name}</h3>
-                    <p>{agent.role}</p>
-                  </div>
-                  <span className={`agent-team-status status-${agent.status}`}>
-                    {agent.status}
-                  </span>
-                </div>
-                <dl>
-                  <div>
-                    <dt>Model</dt>
-                    <dd>{agent.model ?? "No Model assigned"}</dd>
-                  </div>
-                  <div>
-                    <dt>Provider</dt>
-                    <dd>{agent.provider ?? "—"}</dd>
-                  </div>
-                  <div>
-                    <dt>Run tokens</dt>
-                    <dd>
-                      {formatTokens(agent.inputTokens)} IN ·{" "}
-                      {formatTokens(agent.outputTokens)} OUT
-                    </dd>
-                  </div>
-                  <div>
-                    <dt>Last heartbeat</dt>
-                    <dd>{formatDate(agent.lastHeartbeatAt)}</dd>
-                  </div>
-                  <div>
-                    <dt>Last success</dt>
-                    <dd>{formatDate(agent.lastSuccessfulExecutionAt)}</dd>
-                  </div>
-                </dl>
-              </article>
-            ))}
-          </div>
-        ) : (
-          <p className="agent-team-empty">
-            {loading
-              ? "Loading registered agents…"
-              : "No agents in this team yet."}
-          </p>
-        )}
-      </section>
-      }
-
-      {view === "settings" && <section className="agent-team-section">
-        <div className="agent-team-section-heading">
-          <div>
-            <p className="agent-team-eyebrow">TASK QUEUE</p>
-            <h2>Assigned tasks</h2>
-          </div>
-          <span>Queued tasks wait for a worker</span>
-        </div>
-        {queuedTasks.length ? (
-          <div className="agent-task-list">
-            {queuedTasks.map((task) => (
-              <article className="agent-task-card" key={task.id}>
-                <div>
-                  <h3>{task.title}</h3>
-                  <p>{task.description}</p>
-                  <span>
-                    {task.agentName ?? "Team queue"} ·{" "}
-                    {new Date(task.createdAt).toLocaleString()}
-                  </span>
-                </div>
-                <span className="agent-task-queued">QUEUED</span>
-              </article>
-            ))}
-          </div>
-        ) : (
-          <p className="agent-team-empty">No tasks queued for this team.</p>
-        )}
-      </section>
-      }
-
-      {view === "settings" && <section className="agent-team-section agent-team-management">
-        <div className="agent-team-section-heading">
-          <div>
-            <p className="agent-team-eyebrow">PROTECTED TEAM CONTROLS</p>
-            <h2>Build agents & assign work</h2>
-          </div>
-          {adminAuthenticated && (
-            <button
-              className="agent-team-quiet-button"
-              onClick={signOut}
-              type="button"
-            >
-              Sign out
-            </button>
-          )}
-        </div>
-
-        {adminAuthenticated ? (
-          <>
-            <div className="agent-management-grid">
-              <form className="agent-management-form" onSubmit={createAgent}>
-                <h3>Create a sub-agent</h3>
-                <label>
-                  Name
-                  <input
-                    maxLength={120}
-                    required
-                    value={agentForm.name}
-                    onChange={(event) =>
-                      setAgentForm({ ...agentForm, name: event.target.value })
-                    }
-                  />
-                </label>
-                <label>
-                  Role
-                  <input
-                    maxLength={160}
-                    required
-                    value={agentForm.role}
-                    onChange={(event) =>
-                      setAgentForm({ ...agentForm, role: event.target.value })
-                    }
-                  />
-                </label>
-                <label>
-                  Instructions
-                  <textarea
-                    maxLength={4000}
-                    rows={4}
-                    value={agentForm.instructions}
-                    onChange={(event) =>
-                      setAgentForm({
-                        ...agentForm,
-                        instructions: event.target.value,
-                      })
-                    }
-                  />
-                </label>
-                <div className="agent-form-inline">
-                  <label>
-                    Provider
-                    <input
-                      maxLength={80}
-                      value={agentForm.provider}
-                      onChange={(event) =>
-                        setAgentForm({
-                          ...agentForm,
-                          provider: event.target.value,
-                        })
-                      }
-                    />
-                  </label>
-                  <label>
-                    Model
-                    <input
-                      maxLength={160}
-                      value={agentForm.model}
-                      onChange={(event) =>
-                        setAgentForm({
-                          ...agentForm,
-                          model: event.target.value,
-                        })
-                      }
-                    />
-                  </label>
-                </div>
-                <button
-                  className="agent-team-primary-button"
-                  disabled={agentSubmitting}
-                  type="submit"
-                >
-                  {agentSubmitting ? "Creating…" : "Create agent"}
-                </button>
-              </form>
-
-              <form className="agent-management-form" onSubmit={queueTask}>
-                <h3>Assign a task</h3>
-                <label>
-                  Task title
-                  <input
-                    maxLength={200}
-                    required
-                    value={taskForm.title}
-                    onChange={(event) =>
-                      setTaskForm({ ...taskForm, title: event.target.value })
-                    }
-                  />
-                </label>
-                <label>
-                  Instructions
-                  <textarea
-                    maxLength={4000}
-                    required
-                    rows={7}
-                    value={taskForm.description}
-                    onChange={(event) =>
-                      setTaskForm({
-                        ...taskForm,
-                        description: event.target.value,
-                      })
-                    }
-                  />
-                </label>
-                <label>
-                  Assign to
-                  <select
-                    value={taskForm.agentId}
-                    onChange={(event) =>
-                      setTaskForm({ ...taskForm, agentId: event.target.value })
-                    }
-                  >
-                    <option value="">Team queue</option>
-                    {agents.map((agent) => (
-                      <option key={agent.id} value={agent.id}>
-                        {agent.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <p className="agent-queue-note">
-                  Tasks are saved in the queue. A worker must be connected
-                  before they can run.
-                </p>
-                <button
-                  className="agent-team-primary-button"
-                  disabled={taskSubmitting}
-                  type="submit"
-                >
-                  {taskSubmitting ? "Queuing…" : "Queue task"}
-                </button>
-              </form>
-            </div>
-            {(actionError || actionNotice) && (
-              <p
-                aria-live="polite"
-                className={`agent-action-message ${actionError ? "is-error" : "is-success"}`}
-              >
-                {actionError || actionNotice}
-              </p>
-            )}
-          </>
-        ) : (
-          <form className="agent-admin-signin" onSubmit={signIn}>
+      {view === "settings" && (
+        <section className="agent-team-section">
+          <div className="agent-team-section-heading">
             <div>
-              <h3>Admin access required</h3>
-              <p>
-                Admin sign-in is only for team changes. Vision&apos;s assigned
-                model and chat do not require signing in here.
-              </p>
+              <p className="agent-team-eyebrow">TEAM ROSTER</p>
+              <h2>Sub-agents</h2>
             </div>
-            <label>
-              Admin token
-              <input
-                autoComplete="current-password"
-                required
-                type="password"
-                value={adminToken}
-                onChange={(event) => setAdminToken(event.target.value)}
-              />
-            </label>
-            <button className="agent-team-primary-button" type="submit">
-              Sign in
-            </button>
-            {loginError && (
-              <p aria-live="polite" className="agent-action-message is-error">
-                {loginError}
-              </p>
-            )}
-          </form>
-        )}
-      </section>
-      }
+            <span>{agents.length} registered</span>
+          </div>
+          {agents.length ? (
+            <div className="agent-team-roster">
+              {agents.map((agent) => (
+                <article className="agent-roster-card" key={agent.id}>
+                  <div className="agent-roster-heading">
+                    <div>
+                      <h3>{agent.name}</h3>
+                      <p>{agent.role}</p>
+                    </div>
+                    <span className={`agent-team-status status-${agent.status}`}>
+                      {agent.status}
+                    </span>
+                  </div>
+                  <dl>
+                    <div>
+                      <dt>Model</dt>
+                      <dd>{agent.model ?? "No Model assigned"}</dd>
+                    </div>
+                    <div>
+                      <dt>Provider</dt>
+                      <dd>{agent.provider ?? "—"}</dd>
+                    </div>
+                    <div>
+                      <dt>Run tokens</dt>
+                      <dd>
+                        {formatTokens(agent.inputTokens)} IN ·{" "}
+                        {formatTokens(agent.outputTokens)} OUT
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>Last heartbeat</dt>
+                      <dd>{formatDate(agent.lastHeartbeatAt)}</dd>
+                    </div>
+                    <div>
+                      <dt>Last success</dt>
+                      <dd>{formatDate(agent.lastSuccessfulExecutionAt)}</dd>
+                    </div>
+                  </dl>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <p className="agent-team-empty">
+              {loading
+                ? "Loading registered agents…"
+                : "No agents in this team yet."}
+            </p>
+          )}
+        </section>
+      )}
+
+      {view === "settings" && (
+        <section className="agent-team-section">
+          <div className="agent-team-section-heading">
+            <div>
+              <p className="agent-team-eyebrow">TASK QUEUE</p>
+              <h2>Assigned tasks</h2>
+            </div>
+            <span>Queued tasks wait for a worker</span>
+          </div>
+          {queuedTasks.length ? (
+            <div className="agent-task-list">
+              {queuedTasks.map((task) => (
+                <article className="agent-task-card" key={task.id}>
+                  <div>
+                    <h3>{task.title}</h3>
+                    <p>{task.description}</p>
+                    <span>
+                      {task.agentName ?? "Team queue"} ·{" "}
+                      {new Date(task.createdAt).toLocaleString()}
+                    </span>
+                  </div>
+                  <span className="agent-task-queued">QUEUED</span>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <p className="agent-team-empty">No tasks queued for this team.</p>
+          )}
+        </section>
+      )}
+
     </main>
   );
 }

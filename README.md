@@ -503,30 +503,26 @@ UTC day; unavailable model or usage values remain blank rather than being
 estimated. Generate a random secret of at least 32 characters for
 `AGENT_MONITORING_TOKEN`.
 
-### Team agent management
+### Team settings
 
-Each team card links to its dedicated management page at `/agents/jarvis`,
-`/agents/friday`, `/agents/ultron`, or `/agents/vision`. After signing in,
-administrators can create sub-agents with a role, instructions, and optional
-provider/model details, then queue tasks for a team or a specific member.
-
-Set `AGENT_ADMIN_TOKEN` to a private admin password and
-`AGENT_ADMIN_SESSION_SECRET` to a separate random secret of at least 32 bytes.
-The token is exchanged for an eight-hour, HttpOnly, same-site session cookie;
-keep both values server-side and never expose them through client configuration.
-Apply the pending Prisma migration before using the management pages.
+Each team card links to its dedicated page at `/agents/jarvis`,
+`/agents/friday`, `/agents/ultron`, or `/agents/vision`. Team settings display
+registered sub-agents and queued tasks. The settings page does not expose the
+protected agent-creation or task-assignment controls.
 
 Queued tasks are persisted with `QUEUED` status and shown on the team page.
 They are not dispatched or executed until a worker/queue consumer is connected.
 
-### Vision streamed chat
+### NVIDIA model assignments
 
-Vision's dashboard discovers the NVIDIA models available to the server and
-shows only those model IDs. Nemotron 3 Ultra is assigned to Vision when NVIDIA
-reports it as available. For local development, set `NVIDIA_API_KEY` in the
-ignored `.env.local` file. In deployment, configure it as a server environment
-secret. The key is never sent to the browser; only response text is streamed to
-the chat interface.
+Each agent's settings page discovers the NVIDIA models currently available to
+the server and lets you choose one for that team. The choice is saved in the
+current browser and displayed on the home card; each agent's chat uses its
+selected model. Configure `NVIDIA_API_KEY` only as a server environment secret
+(or in the ignored `.env.local` for local development); the key is never sent
+to the browser. Use a raw NVIDIA API Catalog key (typically prefixed with
+`nvapi-`), without a `Bearer` prefix, and restart the development server after
+changing it.
 
 ---
 
