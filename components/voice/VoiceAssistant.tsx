@@ -44,6 +44,7 @@ type RecognitionWindow = Window & {
 export default function VoiceAssistant() {
   const pathname = usePathname();
   const router = useRouter();
+  const compact = pathname !== "/";
   const [status, setStatus] = useState<VoiceStatus>("idle");
   const [activated, setActivated] = useState(false);
   const [transcript, setTranscript] = useState("");
@@ -55,6 +56,8 @@ export default function VoiceAssistant() {
   const routeHistoryRef = useRef<string[]>([]);
   const responsePendingRef = useRef(false);
   const restartTimerRef = useRef<number | null>(null);
+  const finalResultTimerRef = useRef<number | null>(null);
+  const finalTranscriptRef = useRef("");
   const startRecognitionRef = useRef<() => void>(() => {});
 
   useEffect(() => {
@@ -110,7 +113,7 @@ export default function VoiceAssistant() {
 
   const runCommand = useCallback(
     (spokenText: string) => {
-      const command = resolveVoiceNavigationCommand(spokenText);
+      const command = resolveVoiceNavigationCommand(spokenText, pathname);
       responsePendingRef.current = true;
       if (command.type === "scroll") {
         if (command.direction === "top") {
@@ -129,6 +132,12 @@ export default function VoiceAssistant() {
           });
         }
         speak(getVoiceCommandReply(command, pathname));
+        return;
+      }
+
+      if (command.type === "restart") {
+        speak("Sure, Sir. Refreshing the page now.");
+        window.setTimeout(() => window.location.reload(), 700);
         return;
       }
 
@@ -177,6 +186,7 @@ export default function VoiceAssistant() {
     recognition.lang = "en-IN";
     recognition.interimResults = true;
     recognition.continuous = true;
+    finalTranscriptRef.current = "";
     recognition.onresult = (event) => {
       let finalText = "";
       let interimText = "";
@@ -190,13 +200,37 @@ export default function VoiceAssistant() {
         else interimText += result[0].transcript;
       }
 
-      if (interimText.trim()) setTranscript(interimText.trim());
       if (finalText.trim()) {
-        const spokenText = finalText.trim();
-        setTranscript(spokenText);
-        responsePendingRef.current = true;
-        recognition.stop();
-        runCommand(spokenText);
+        finalTranscriptRef.current = [
+          finalTranscriptRef.current,
+          finalText.trim(),
+        ]
+          .filter(Boolean)
+          .join(" ");
+      }
+      const displayedText = [
+        finalTranscriptRef.current,
+        interimText.trim(),
+      ]
+        .filter(Boolean)
+        .join(" ");
+      if (displayedText) setTranscript(displayedText);
+
+      if (finalTranscriptRef.current) {
+        if (finalResultTimerRef.current !== null) {
+          window.clearTimeout(finalResultTimerRef.current);
+        }
+        finalResultTimerRef.current = window.setTimeout(() => {
+          finalResultTimerRef.current = null;
+          const spokenText = finalTranscriptRef.current.trim();
+          finalTranscriptRef.current = "";
+          if (!spokenText) return;
+
+          setTranscript(spokenText);
+          responsePendingRef.current = true;
+          recognition.stop();
+          runCommand(spokenText);
+        }, 700);
       }
     };
     recognition.onerror = (event) => {
@@ -205,6 +239,11 @@ export default function VoiceAssistant() {
         event.error === "not-allowed" ||
         event.error === "service-not-allowed"
       ) {
+        if (finalResultTimerRef.current !== null) {
+          window.clearTimeout(finalResultTimerRef.current);
+          finalResultTimerRef.current = null;
+        }
+        finalTranscriptRef.current = "";
         activatedRef.current = false;
         setActivated(false);
         setMessage(
@@ -217,7 +256,11 @@ export default function VoiceAssistant() {
     recognition.onend = () => {
       if (recognitionRef.current === recognition) recognitionRef.current = null;
       if (!mountedRef.current) return;
-      if (activatedRef.current && !responsePendingRef.current) {
+      if (
+        activatedRef.current &&
+        !responsePendingRef.current &&
+        finalResultTimerRef.current === null
+      ) {
         restartTimerRef.current = window.setTimeout(() => {
           restartTimerRef.current = null;
           startRecognitionRef.current();
@@ -248,6 +291,11 @@ export default function VoiceAssistant() {
     if (activatedRef.current) {
       activatedRef.current = false;
       setActivated(false);
+      if (finalResultTimerRef.current !== null) {
+        window.clearTimeout(finalResultTimerRef.current);
+        finalResultTimerRef.current = null;
+      }
+      finalTranscriptRef.current = "";
       if (restartTimerRef.current !== null) {
         window.clearTimeout(restartTimerRef.current);
         restartTimerRef.current = null;
@@ -290,6 +338,9 @@ export default function VoiceAssistant() {
       mountedRef.current = false;
       window.removeEventListener("keydown", onKeyDown);
       activatedRef.current = false;
+      if (finalResultTimerRef.current !== null) {
+        window.clearTimeout(finalResultTimerRef.current);
+      }
       if (restartTimerRef.current !== null) {
         window.clearTimeout(restartTimerRef.current);
       }
@@ -300,7 +351,11 @@ export default function VoiceAssistant() {
   }, [startListening]);
 
   return (
-    <aside className={`voice-assistant voice-assistant-${status}`}>
+    <aside
+      className={`voice-assistant voice-assistant-${status} ${
+        compact ? "voice-assistant-compact" : ""
+      }`}
+    >
       <button
         className={`voice-assistant-button ${activated ? "is-active" : "is-inactive"}`}
         type="button"
@@ -323,6 +378,13 @@ export default function VoiceAssistant() {
       >
         <span className="voice-assistant-transcript">
           {transcript || message}
+        </span>
+        <span className="voice-assistant-hint">
+          {activated
+            ? status === "speaking"
+              ? "Voice assistant"
+              : "Listening for requests"
+            : message}
         </span>
       </div>
     </aside>

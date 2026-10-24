@@ -7,10 +7,14 @@ import {
   dashboardResponseSchema,
 } from "@/lib/agent-monitoring";
 import type { TeamDashboard, TeamId } from "@/lib/agent-monitoring";
+import { visionModelsResponseSchema } from "@/lib/vision-models";
+import VisionChat from "./VisionChat";
+import VisionModelSettings from "./VisionModelSettings";
 import "./AgentTeamPage.css";
 
 type AgentTeamPageProps = {
   teamId: TeamId;
+  view?: "dashboard" | "settings";
 };
 
 type AgentForm = {
@@ -27,6 +31,13 @@ type TaskForm = {
   agentId: string;
 };
 
+type VisionModelState = {
+  teamId: TeamId;
+  status: "loading" | "loaded" | "unavailable";
+  models: string[];
+  assignedModel: string | null;
+};
+
 const EMPTY_AGENT_FORM: AgentForm = {
   name: "",
   role: "",
@@ -41,10 +52,15 @@ const EMPTY_TASK_FORM: TaskForm = {
   agentId: "",
 };
 
-export default function AgentTeamPage({ teamId }: AgentTeamPageProps) {
+export default function AgentTeamPage({
+  teamId,
+  view = "dashboard",
+}: AgentTeamPageProps) {
   const team = TEAM_DEFINITIONS.find(({ id }) => id === teamId);
   const [dashboard, setDashboard] = useState<TeamDashboard>();
   const [loading, setLoading] = useState(true);
+  const [visionModelState, setVisionModelState] =
+    useState<VisionModelState | null>(null);
   const [adminAuthenticated, setAdminAuthenticated] = useState<boolean | null>(
     null,
   );
@@ -81,12 +97,32 @@ export default function AgentTeamPage({ teamId }: AgentTeamPageProps) {
     acceptDashboard(await response.json());
   }, [acceptDashboard]);
 
+  const currentVisionModelState =
+    visionModelState?.teamId === teamId ? visionModelState : null;
+  const visionModelsLoading =
+    teamId === "VISION" &&
+    (currentVisionModelState === null ||
+      currentVisionModelState.status === "loading");
+  const availableVisionModels =
+    currentVisionModelState?.status === "loaded"
+      ? currentVisionModelState.models
+      : null;
+  const assignedVisionModel =
+    currentVisionModelState?.status === "loaded"
+      ? currentVisionModelState.assignedModel
+      : null;
+
   useEffect(() => {
     let active = true;
     const eventSource = new EventSource("/api/monitoring/teams/stream");
-    const sessionRequest = fetch("/api/admin/session", {
-      cache: "no-store",
-    });
+    const sessionRequest =
+      view === "settings"
+        ? fetch("/api/admin/session", { cache: "no-store" })
+        : null;
+    const visionModelsRequest =
+      teamId === "VISION"
+        ? fetch("/api/agents/vision/models", { cache: "no-store" })
+        : null;
 
     eventSource.onmessage = (event) => {
       if (!active) return;
@@ -103,7 +139,7 @@ export default function AgentTeamPage({ teamId }: AgentTeamPageProps) {
     };
 
     void sessionRequest
-      .then(async (response) => {
+      ?.then(async (response) => {
         const result = (await response.json()) as {
           authenticated?: boolean;
           error?: string;
@@ -122,11 +158,43 @@ export default function AgentTeamPage({ teamId }: AgentTeamPageProps) {
         );
       });
 
+    void visionModelsRequest
+      ?.then(async (response) => {
+        if (!response.ok) {
+          throw new Error(`Vision model discovery returned ${response.status}.`);
+        }
+        const parsed = visionModelsResponseSchema.safeParse(
+          await response.json(),
+        );
+        if (!parsed.success) {
+          throw new Error("Vision model discovery returned invalid data.");
+        }
+        if (active) {
+          setVisionModelState({
+            teamId,
+            status: "loaded",
+            models: parsed.data.models,
+            assignedModel: parsed.data.assignedModel,
+          });
+        }
+      })
+      .catch((error: unknown) => {
+        console.error("Unable to load Vision's assigned model.", error);
+        if (active) {
+          setVisionModelState({
+            teamId,
+            status: "unavailable",
+            models: [],
+            assignedModel: null,
+          });
+        }
+      });
+
     return () => {
       active = false;
       eventSource.close();
     };
-  }, [acceptDashboard]);
+  }, [acceptDashboard, teamId, view]);
 
   if (!team) return null;
 
@@ -245,49 +313,107 @@ export default function AgentTeamPage({ teamId }: AgentTeamPageProps) {
 
   return (
     <main className="agent-team-page">
-      <header className="agent-team-header">
+      {view === "settings" && (
+        <Link className="agent-team-back" href={`/agents/${team.agentId}`}>
+          ← Back to {team.name}
+        </Link>
+      )}
+      <header
+        className={`agent-team-header ${
+          view === "dashboard" ? "is-dashboard-header" : ""
+        }`}
+      >
         <div className="agent-team-title-row">
           <div>
-            <p className="agent-team-eyebrow">TEAM CONTROL CENTER</p>
-            <h1>{team.name}</h1>
-            <p className="agent-team-description">{team.role}</p>
+            {view === "settings" && (
+              <p className="agent-team-eyebrow">AGENT SETTINGS</p>
+            )}
+            <h1>{view === "settings" ? `${team.name} Settings` : team.name}</h1>
+            {view === "settings" && (
+              <p className="agent-team-description">{team.role}</p>
+            )}
           </div>
-          <span
-            className={`agent-team-status status-${dashboard?.status ?? "offline"}`}
-          >
-            {dashboard?.status ?? (loading ? "Loading" : "Offline")}
-          </span>
+          <div className="agent-team-header-actions">
+            <span
+              className={`agent-team-status status-${dashboard?.status ?? "offline"}`}
+            >
+              {dashboard?.status ?? (loading ? "Loading" : "Offline")}
+            </span>
+            {view === "dashboard" && (
+              <Link
+                aria-label={`${team.name} settings`}
+                className="agent-team-settings-link"
+                href={`/agents/${team.agentId}/settings`}
+                title="Settings"
+              >
+                <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <path
+                    d="M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Z"
+                    stroke="currentColor"
+                    strokeWidth="1.7"
+                  />
+                  <path
+                    d="m19.4 15 .1.1a1.8 1.8 0 1 1-2.5 2.5l-.1-.1a1.8 1.8 0 0 0-3 .9v.2a1.8 1.8 0 1 1-3.6 0v-.2a1.8 1.8 0 0 0-3-.9l-.1.1a1.8 1.8 0 1 1-2.5-2.5l.1-.1a1.8 1.8 0 0 0-.9-3h-.2a1.8 1.8 0 1 1 0-3.6h.2a1.8 1.8 0 0 0 .9-3l-.1-.1a1.8 1.8 0 1 1 2.5-2.5l.1.1a1.8 1.8 0 0 0 3-.9v-.2a1.8 1.8 0 1 1 3.6 0v.2a1.8 1.8 0 0 0 3 .9l.1-.1a1.8 1.8 0 1 1 2.5 2.5l-.1.1a1.8 1.8 0 0 0 .9 3h.2a1.8 1.8 0 1 1 0 3.6h-.2a1.8 1.8 0 0 0-.9 3Z"
+                    stroke="currentColor"
+                    strokeWidth="1.4"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </Link>
+            )}
+          </div>
         </div>
+        {view === "dashboard" && (
+          <section className="agent-team-stats" aria-label="Team overview">
+            {[
+              ["Sub-agents", dashboard?.counts.total],
+              ["Working", dashboard?.counts.working],
+              ["Idle", dashboard?.counts.idle],
+              [
+                "Issues",
+                dashboard
+                  ? dashboard.counts.failed + dashboard.counts.stalled
+                  : undefined,
+              ],
+            ].map(([label, value]) => (
+              <div className="agent-team-stat" key={label}>
+                <span>{label}</span>
+                <strong>{value ?? "—"}</strong>
+              </div>
+            ))}
+            <div className="agent-team-stat agent-team-stat-models">
+              <span>Models</span>
+              <strong>
+                {teamId === "VISION"
+                  ? visionModelsLoading
+                    ? "Loading available model…"
+                    : assignedVisionModel ?? "Assigned model unavailable"
+                  : dashboard?.models.length
+                    ? dashboard.models.join(", ")
+                    : "No Model assigned"}
+              </strong>
+            </div>
+          </section>
+        )}
       </header>
 
-      <section className="agent-team-stats" aria-label="Team overview">
-        {[
-          ["Sub-agents", dashboard?.counts.total],
-          ["Working", dashboard?.counts.working],
-          ["Idle", dashboard?.counts.idle],
-          [
-            "Issues",
-            dashboard
-              ? dashboard.counts.failed + dashboard.counts.stalled
-              : undefined,
-          ],
-        ].map(([label, value]) => (
-          <div className="agent-team-stat" key={label}>
-            <span>{label}</span>
-            <strong>{value ?? "—"}</strong>
-          </div>
-        ))}
-        <div className="agent-team-stat agent-team-stat-models">
-          <span>Models</span>
-          <strong>
-            {dashboard?.models.length
-              ? dashboard.models.join(", ")
-              : "No Model assigned"}
-          </strong>
-        </div>
-      </section>
+      {teamId === "VISION" && view === "settings" && (
+        <VisionModelSettings
+          assignedModel={assignedVisionModel}
+          loading={visionModelsLoading}
+          models={availableVisionModels}
+        />
+      )}
 
-      <section className="agent-team-section">
+      {teamId === "VISION" && view === "dashboard" && (
+        <VisionChat
+          assignedModel={assignedVisionModel}
+          loading={visionModelsLoading}
+          models={availableVisionModels ?? []}
+        />
+      )}
+
+      {view === "settings" && <section className="agent-team-section">
         <div className="agent-team-section-heading">
           <div>
             <p className="agent-team-eyebrow">TEAM ROSTER</p>
@@ -344,8 +470,9 @@ export default function AgentTeamPage({ teamId }: AgentTeamPageProps) {
           </p>
         )}
       </section>
+      }
 
-      <section className="agent-team-section">
+      {view === "settings" && <section className="agent-team-section">
         <div className="agent-team-section-heading">
           <div>
             <p className="agent-team-eyebrow">TASK QUEUE</p>
@@ -373,11 +500,12 @@ export default function AgentTeamPage({ teamId }: AgentTeamPageProps) {
           <p className="agent-team-empty">No tasks queued for this team.</p>
         )}
       </section>
+      }
 
-      <section className="agent-team-section agent-team-management">
+      {view === "settings" && <section className="agent-team-section agent-team-management">
         <div className="agent-team-section-heading">
           <div>
-            <p className="agent-team-eyebrow">TEAM MANAGEMENT</p>
+            <p className="agent-team-eyebrow">PROTECTED TEAM CONTROLS</p>
             <h2>Build agents & assign work</h2>
           </div>
           {adminAuthenticated && (
@@ -539,7 +667,10 @@ export default function AgentTeamPage({ teamId }: AgentTeamPageProps) {
           <form className="agent-admin-signin" onSubmit={signIn}>
             <div>
               <h3>Admin access required</h3>
-              <p>Sign in to create sub-agents and queue team tasks.</p>
+              <p>
+                Admin sign-in is only for team changes. Vision&apos;s assigned
+                model and chat do not require signing in here.
+              </p>
             </div>
             <label>
               Admin token
@@ -562,6 +693,7 @@ export default function AgentTeamPage({ teamId }: AgentTeamPageProps) {
           </form>
         )}
       </section>
+      }
     </main>
   );
 }

@@ -258,7 +258,6 @@ export default function RobotAvatar() {
           ))}
         </div>
       </section>
-
     </main>
   );
 }
@@ -414,12 +413,17 @@ function AgentCard({
   selected: boolean;
   onSelect: () => void;
 }) {
-  const status = dashboard?.status ?? (loading ? "loading" : "unavailable");
-  const statusLabel = dashboard?.status ?? (loading ? "Loading" : "Unavailable");
+  const status = dashboard?.status ?? (loading ? "loading" : "idle");
+  const statusLabel = dashboard?.status ?? (loading ? "Loading" : "Idle");
   const visibleMembers = dashboard?.agents.slice(0, 2) ?? [];
   const modelSummary = dashboard?.models.length
     ? dashboard.models.join(", ")
     : "No Model assigned";
+  const inputUsage = dashboard?.tokens.input ?? null;
+  const outputUsage = dashboard?.tokens.output ?? null;
+  const usageMax = Math.max(inputUsage ?? 0, outputUsage ?? 0);
+  const tokenRate = getEstimatedTokenRate(dashboard);
+  const isWorking = (dashboard?.counts.working ?? 0) > 0;
 
   return (
     <article
@@ -484,37 +488,87 @@ function AgentCard({
         <strong>{modelSummary}</strong>
       </div>
 
-      <div className="navi-team-members">
-        {visibleMembers.length ? (
-          visibleMembers.map((member) => (
-            <div className="navi-team-member" key={member.id}>
-              <div className="navi-team-member-heading">
-                <span title={member.name}>{member.name}</span>
+      <div
+        className={`navi-gpu-module ${isWorking ? "is-running" : ""}`}
+        role="group"
+        aria-label={`Compute module ${isWorking ? "working" : "idle"}`}
+      >
+        <div className="navi-gpu-hardware" aria-hidden="true">
+          <span className="navi-gpu-fan" />
+          <span className="navi-gpu-fan" />
+        </div>
+        <div className="navi-gpu-telemetry">
+          <div className="navi-gpu-telemetry-heading">
+            <span className="navi-metric-label">
+              GPU · {isWorking ? "ACTIVE" : "IDLE"}
+            </span>
+            <strong>
+              {tokenRate === null
+                ? "—"
+                : `~${formatTokenCount(tokenRate)} tok/s`}
+            </strong>
+          </div>
+          <div
+            className="navi-gpu-usage"
+            aria-label={`Today's token usage: ${formatTokenCount(inputUsage)} input and ${formatTokenCount(outputUsage)} output`}
+          >
+            <div className="navi-gpu-usage-row">
+              <span>IN</span>
+              <span className="navi-gpu-usage-track">
                 <span
-                  className={`navi-member-status status-${member.status}`}
-                  title={`Last heartbeat: ${member.lastHeartbeatAt ?? "not received"}`}
-                >
-                  {member.status}
-                </span>
-              </div>
-              <div className="navi-team-member-details">
-                <span title={member.model ?? "No Model assigned"}>
-                  {member.model ?? "No Model assigned"}
-                </span>
-                <span>
-                  {formatTokenCount(member.inputTokens)} IN ·{" "}
-                  {formatTokenCount(member.outputTokens)} OUT
-                </span>
-              </div>
-              <div className="navi-team-member-meta">
-                HEARTBEAT {formatAge(member.lastHeartbeatAt)} · LAST SUCCESS{" "}
-                {formatAge(member.lastSuccessfulExecutionAt)}
-              </div>
+                  className="navi-gpu-usage-fill is-input"
+                  style={{
+                    width: `${usageMax ? ((inputUsage ?? 0) / usageMax) * 100 : 0}%`,
+                  }}
+                />
+              </span>
+              <strong>{formatTokenCount(inputUsage)}</strong>
             </div>
-          ))
-        ) : (
-          loading && <span className="navi-team-empty">Loading agents…</span>
-        )}
+            <div className="navi-gpu-usage-row">
+              <span>OUT</span>
+              <span className="navi-gpu-usage-track">
+                <span
+                  className="navi-gpu-usage-fill is-output"
+                  style={{
+                    width: `${usageMax ? ((outputUsage ?? 0) / usageMax) * 100 : 0}%`,
+                  }}
+                />
+              </span>
+              <strong>{formatTokenCount(outputUsage)}</strong>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="navi-team-members">
+        {visibleMembers.length
+          ? visibleMembers.map((member) => (
+              <div className="navi-team-member" key={member.id}>
+                <div className="navi-team-member-heading">
+                  <span title={member.name}>{member.name}</span>
+                  <span
+                    className={`navi-member-status status-${member.status}`}
+                    title={`Last heartbeat: ${member.lastHeartbeatAt ?? "not received"}`}
+                  >
+                    {member.status}
+                  </span>
+                </div>
+                <div className="navi-team-member-details">
+                  <span title={member.model ?? "No Model assigned"}>
+                    {member.model ?? "No Model assigned"}
+                  </span>
+                  <span>
+                    {formatTokenCount(member.inputTokens)} IN ·{" "}
+                    {formatTokenCount(member.outputTokens)} OUT
+                  </span>
+                </div>
+                <div className="navi-team-member-meta">
+                  HEARTBEAT {formatAge(member.lastHeartbeatAt)} · LAST SUCCESS{" "}
+                  {formatAge(member.lastSuccessfulExecutionAt)}
+                </div>
+              </div>
+            ))
+          : loading && <span className="navi-team-empty">Loading agents…</span>}
         {(dashboard?.counts.total ?? 0) > visibleMembers.length && (
           <span className="navi-team-more">
             +{(dashboard?.counts.total ?? 0) - visibleMembers.length} more
@@ -522,15 +576,26 @@ function AgentCard({
         )}
       </div>
 
-      <div className="navi-team-tokens">
-        <span className="navi-metric-label">RUN TOKENS TODAY</span>
-        <strong>
-          {formatTokenCount(dashboard?.tokens.input ?? null)} IN ·{" "}
-          {formatTokenCount(dashboard?.tokens.output ?? null)} OUT
-        </strong>
-      </div>
     </article>
   );
+}
+
+function getEstimatedTokenRate(dashboard: TeamDashboard | undefined) {
+  if (!dashboard) return null;
+
+  const tokenRate = dashboard.agents.reduce((totalRate, agent) => {
+    const startedAt = agent.currentExecutionStartedAt;
+    if (agent.status !== "working" || startedAt === null) return totalRate;
+
+    const elapsedSeconds = Math.max(
+      1,
+      (Date.now() - Date.parse(startedAt)) / 1000,
+    );
+    if (!Number.isFinite(elapsedSeconds)) return totalRate;
+    const runTokens = (agent.inputTokens ?? 0) + (agent.outputTokens ?? 0);
+    return totalRate + runTokens / elapsedSeconds;
+  }, 0);
+  return tokenRate > 0 ? tokenRate : null;
 }
 
 function formatTokenCount(value: number | null) {

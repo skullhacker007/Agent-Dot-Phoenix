@@ -7,7 +7,7 @@ import {
 describe("resolveVoiceNavigationCommand", () => {
   it.each([
     ["Open Jarvis", "/agents/jarvis", "Jarvis"],
-    ["Please go to Friday", "/agents/friday", "Friday"],
+    ["Please Go to Friday", "/agents/friday", "Friday"],
     ["Navigate to Ultron team", "/agents/ultron", "Ultron"],
     ["Take me to Vision page", "/agents/vision", "Vision"],
     ["Go to dashboard", "/", "Home page"],
@@ -17,11 +17,50 @@ describe("resolveVoiceNavigationCommand", () => {
     ["I want to open Friday", "/agents/friday", "Friday"],
     ["Show me Jarvis", "/agents/jarvis", "Jarvis"],
     ["Friday", "/agents/friday", "Friday"],
+    ["Go to Jarvis settings", "/agents/jarvis/settings", "Jarvis settings"],
+    ["Open settings for Friday", "/agents/friday/settings", "Friday settings"],
   ])("resolves %s from configured destinations", (transcript, href, label) => {
     expect(resolveVoiceNavigationCommand(transcript)).toEqual({
       type: "navigate",
       href,
       label,
+    });
+  });
+
+  it.each([
+    ["settings", "/agents/jarvis", "/agents/jarvis/settings", "Jarvis settings"],
+    [
+      "Go to setting",
+      "/agents/friday",
+      "/agents/friday/settings",
+      "Friday settings",
+    ],
+    [
+      "Open agent settings",
+      "/agents/ultron",
+      "/agents/ultron/settings",
+      "Ultron settings",
+    ],
+  ])(
+    "resolves contextual settings requests from %s",
+    (transcript, currentPath, href, label) => {
+      expect(resolveVoiceNavigationCommand(transcript, currentPath)).toEqual({
+        type: "navigate",
+        href,
+        label,
+      });
+    },
+  );
+
+  it.each([
+    "restart",
+    "refresh",
+    "reload",
+    "refresh the page",
+    "restart the page",
+  ])("recognizes the page refresh command %s", (transcript) => {
+    expect(resolveVoiceNavigationCommand(transcript)).toEqual({
+      type: "restart",
     });
   });
 
@@ -41,7 +80,7 @@ describe("resolveVoiceNavigationCommand", () => {
     ["please scroll the page down", "down"],
     ["scroll up", "up"],
     ["scroll to top", "top"],
-    ["go to bottom", "bottom"],
+    ["Go to bottom", "bottom"],
   ] as const)("resolves the scroll command %s", (transcript, direction) => {
     expect(resolveVoiceNavigationCommand(transcript)).toEqual({
       type: "scroll",

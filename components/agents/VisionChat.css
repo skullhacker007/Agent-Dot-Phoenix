@@ -1,0 +1,219 @@
+.vision-chat {
+  width: min(100%, 1280px);
+  margin: 16px auto 0;
+  overflow: hidden;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  border-radius: 16px;
+  background:
+    linear-gradient(115deg, rgba(34, 211, 238, 0.04), transparent 48%),
+    rgba(7, 17, 29, 0.88);
+  color: #e6f1ff;
+}
+
+.vision-chat-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 22px 14px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+}
+
+.vision-chat-eyebrow {
+  margin: 0 0 5px;
+  color: #67e8f9;
+  font-family: var(--font-jetbrains-mono), monospace;
+  font-size: 10px;
+  letter-spacing: 0.13em;
+}
+
+.vision-chat-heading h2 {
+  margin: 0;
+  color: #f1f8ff;
+  font-family: var(--font-space-grotesk), sans-serif;
+  font-size: 18px;
+  letter-spacing: -0.02em;
+}
+
+.vision-chat-model {
+  display: grid;
+  min-width: min(42%, 360px);
+  gap: 5px;
+  color: #8295aa;
+  font-family: var(--font-jetbrains-mono), monospace;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.vision-chat-model strong {
+  overflow-wrap: anywhere;
+  color: #a5f3fc;
+  font-size: 10px;
+  font-weight: 400;
+  text-transform: none;
+}
+
+.vision-chat-transcript {
+  display: flex;
+  max-height: 420px;
+  min-height: 88px;
+  flex-direction: column;
+  gap: 14px;
+  overflow-y: auto;
+  padding: 18px 22px;
+}
+
+.vision-chat-empty {
+  margin: auto;
+  color: #8295aa;
+  font-size: 13px;
+  text-align: center;
+}
+
+.vision-chat-message {
+  max-width: min(88%, 820px);
+  padding: 11px 14px;
+  border: 1px solid rgba(148, 163, 184, 0.12);
+  border-radius: 12px;
+  background: rgba(15, 28, 43, 0.78);
+}
+
+.vision-chat-message.is-user {
+  align-self: flex-end;
+  border-color: rgba(34, 211, 238, 0.18);
+  background: rgba(8, 47, 59, 0.38);
+}
+
+.vision-chat-message > span {
+  color: #67e8f9;
+  font-family: var(--font-jetbrains-mono), monospace;
+  font-size: 10px;
+  text-transform: uppercase;
+}
+
+.vision-chat-message > p {
+  margin: 6px 0 0;
+  color: #dce8f5;
+  font-size: 13px;
+  line-height: 1.65;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.vision-chat-error {
+  margin: 0 22px 12px;
+  color: #fca5a5;
+  font-size: 12px;
+}
+
+.vision-chat-error a {
+  color: #a5f3fc;
+}
+
+.vision-chat-form {
+  padding: 14px 22px 18px;
+  border-top: 1px solid rgba(148, 163, 184, 0.12);
+}
+
+.vision-chat-input-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}
+
+.vision-chat-form textarea {
+  display: block;
+  width: 100%;
+  min-height: 58px;
+  resize: vertical;
+  padding: 11px 13px;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 10px;
+  outline: none;
+  background: rgba(3, 10, 18, 0.72);
+  color: #e6f1ff;
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.vision-chat-form textarea::placeholder {
+  color: #72869b;
+}
+
+.vision-chat-form textarea:focus {
+  border-color: rgba(34, 211, 238, 0.65);
+  box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.08);
+}
+
+.vision-chat-form textarea:disabled {
+  opacity: 0.72;
+}
+
+.vision-chat-form-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 10px;
+}
+
+.vision-chat-form-footer > span {
+  color: #72869b;
+  font-size: 10px;
+}
+
+.vision-chat-form button {
+  min-width: 88px;
+  padding: 8px 14px;
+  border: 1px solid rgba(34, 211, 238, 0.35);
+  border-radius: 8px;
+  background: rgba(8, 145, 178, 0.15);
+  color: #a5f3fc;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.vision-chat-form button:hover:not(:disabled) {
+  background: rgba(8, 145, 178, 0.28);
+}
+
+.vision-chat-form button:disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
+}
+
+.vision-chat-form button:focus-visible {
+  outline: 2px solid #67e8f9;
+  outline-offset: 3px;
+}
+
+@media (max-width: 640px) {
+  .vision-chat-heading,
+  .vision-chat-transcript,
+  .vision-chat-form {
+    padding-inline: 14px;
+  }
+
+  .vision-chat-error {
+    margin-inline: 14px;
+  }
+
+  .vision-chat-message {
+    max-width: 96%;
+  }
+
+  .vision-chat-model {
+    min-width: min(48%, 190px);
+  }
+
+  .vision-chat-form-footer > span {
+    max-width: 58%;
+    line-height: 1.4;
+  }
+}

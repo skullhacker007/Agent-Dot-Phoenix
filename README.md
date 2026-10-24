@@ -519,6 +519,15 @@ Apply the pending Prisma migration before using the management pages.
 Queued tasks are persisted with `QUEUED` status and shown on the team page.
 They are not dispatched or executed until a worker/queue consumer is connected.
 
+### Vision streamed chat
+
+Vision's dashboard discovers the NVIDIA models available to the server and
+shows only those model IDs. Nemotron 3 Ultra is assigned to Vision when NVIDIA
+reports it as available. For local development, set `NVIDIA_API_KEY` in the
+ignored `.env.local` file. In deployment, configure it as a server environment
+secret. The key is never sent to the browser; only response text is streamed to
+the chat interface.
+
 ---
 
 ## 9. Lead Discovery and Evidence

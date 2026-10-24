@@ -12,15 +12,30 @@ const NAVIGATION_TARGETS: VoiceNavigationTarget[] = [
     label: "Home page",
     aliases: ["home", "dashboard", "main page", "navi"],
   },
-  ...TEAM_DEFINITIONS.map((team) => ({
-    href: `/agents/${team.agentId}`,
-    label: `${team.agentId[0].toUpperCase()}${team.agentId.slice(1)}`,
-    aliases: [team.name, team.agentId, team.id.toLowerCase()],
-  })),
+  ...TEAM_DEFINITIONS.flatMap((team) => {
+    const label = `${team.agentId[0].toUpperCase()}${team.agentId.slice(1)}`;
+    return [
+      {
+        href: `/agents/${team.agentId}`,
+        label,
+        aliases: [team.name, team.agentId, team.id.toLowerCase()],
+      },
+      {
+        href: `/agents/${team.agentId}/settings`,
+        label: `${label} settings`,
+        aliases: [
+          `${team.agentId} settings`,
+          `${team.name} settings`,
+          `settings for ${team.agentId}`,
+        ],
+      },
+    ];
+  }),
 ];
 
 export type VoiceNavigationCommand =
   | { type: "back" }
+  | { type: "restart" }
   | { type: "scroll"; direction: "down" | "up" | "top" | "bottom" }
   | { type: "navigate"; href: string; label: string }
   | { type: "unsupported" };
@@ -33,17 +48,17 @@ export function getVoiceCommandReply(
     return currentPath === command.href
       ? `You're already here, Sir.`
       : command.href === "/"
-        ? "Here you go. You're back on the Home page."
-        : `Here you go. ${command.label} is ready.`;
+        ? "Here you go, Sir. You're back on the Home page."
+        : `Here you go, Sir. ${command.label} is ready.`;
   }
   if (command.type === "back") return "Of course, Sir. Taking you back.";
   if (command.type === "scroll") {
     if (command.direction === "top" || command.direction === "bottom") {
-      return `Sure thing. Moving to the ${command.direction}.`;
+      return `Sure thing, Sir. Moving to the ${command.direction}.`;
     }
-    return `Sure thing. Moving ${command.direction}.`;
+    return `Sure thing, Sir. Moving ${command.direction}.`;
   }
-  return "Sorry, Sir, I didn't catch that.";
+  return "Sorry, Sir, I didn't catch that. Could you say it another way?";
 }
 
 function normalizePhrase(value: string) {
@@ -55,6 +70,7 @@ function normalizePhrase(value: string) {
 
 export function resolveVoiceNavigationCommand(
   transcript: string,
+  currentPath = "/",
 ): VoiceNavigationCommand {
   const normalized = normalizePhrase(transcript);
   if (
@@ -64,6 +80,12 @@ export function resolveVoiceNavigationCommand(
     normalized === "previous page"
   ) {
     return { type: "back" };
+  }
+
+  if (
+    /^(?:please )?(?:restart|refresh|reload)(?: the page)?$/.test(normalized)
+  ) {
+    return { type: "restart" };
   }
 
   const scrollCommand = normalized.match(
@@ -88,6 +110,19 @@ export function resolveVoiceNavigationCommand(
     .replace(/^(?:the )+/, "")
     .replace(/(?: team| page)$/, "")
     .trim();
+
+  if (/^(?:(?:agent|team) )?settings?$/.test(targetPhrase)) {
+    const agentId = currentPath.split("/")[2]?.toLowerCase();
+    const team = TEAM_DEFINITIONS.find(({ agentId: id }) => id === agentId);
+    if (team) {
+      const label = `${team.agentId[0].toUpperCase()}${team.agentId.slice(1)}`;
+      return {
+        type: "navigate",
+        href: `/agents/${team.agentId}/settings`,
+        label: `${label} settings`,
+      };
+    }
+  }
 
   const target = NAVIGATION_TARGETS.find(({ aliases }) =>
     aliases.some((alias) => normalizePhrase(alias) === targetPhrase),
