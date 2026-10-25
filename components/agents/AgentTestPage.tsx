@@ -2,115 +2,14 @@
 
 import { useEffect, useState } from "react";
 import { agentModelsResponseSchema } from "@/lib/agent-models";
+import {
+  MODEL_RESPONSE_TIME_LIMIT_MS,
+  testModel,
+} from "@/lib/agent-model-speed-test";
+import type { ModelSpeedTestResult } from "@/lib/agent-model-speed-test";
 
 type ModelStatus = "WAITING" | "TESTING" | "WORKING" | "NOT WORKING";
-
-type ModelResult = {
-  model: string;
-  responseTime: number | null;
-  status: ModelStatus;
-};
-
-const TIME_LIMIT_MS = 1000;
-const TEST_MESSAGE = "Reply with the word READY.";
-
-async function hasValidCompletion(response: Response) {
-  if (!response.ok || !response.body) return false;
-
-  const reader = response.body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = "";
-  let responseText = "";
-  let complete = false;
-
-  const processLine = (line: string) => {
-    if (!line.startsWith("data:")) return;
-    const data = line.slice(5).trim();
-    if (!data) return;
-    if (data === "[DONE]") {
-      complete = true;
-      return;
-    }
-
-    let payload: unknown;
-    try {
-      payload = JSON.parse(data);
-    } catch (cause) {
-      throw new Error("Inference returned an invalid response stream.", {
-        cause,
-      });
-    }
-    if (
-      typeof payload === "object" &&
-      payload !== null &&
-      "content" in payload &&
-      typeof payload.content === "string"
-    ) {
-      responseText += payload.content;
-    }
-  };
-
-  try {
-    while (!complete) {
-      const { value, done } = await reader.read();
-      if (done) {
-        buffer += decoder.decode();
-        break;
-      }
-      buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split(/\r?\n/);
-      buffer = lines.pop() ?? "";
-      for (const line of lines) {
-        processLine(line);
-        if (complete) break;
-      }
-    }
-    if (!complete && buffer) processLine(buffer);
-    return complete && responseText.trim().length > 0;
-  } finally {
-    reader.releaseLock();
-  }
-}
-
-export async function testModel(
-  modelId: string,
-  parentSignal: AbortSignal,
-): Promise<ModelResult> {
-  const controller = new AbortController();
-  const abortWithParent = () => controller.abort();
-  parentSignal.addEventListener("abort", abortWithParent, { once: true });
-  if (parentSignal.aborted) abortWithParent();
-
-  const startedAt = performance.now();
-  const timeout = window.setTimeout(() => controller.abort(), TIME_LIMIT_MS);
-  let working = false;
-
-  try {
-    const response = await fetch("/api/agents/chat", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        teamId: "VISION",
-        modelId,
-        messages: [{ role: "user", content: TEST_MESSAGE }],
-      }),
-      signal: controller.signal,
-    });
-    working = await hasValidCompletion(response);
-  } catch {
-    working = false;
-  } finally {
-    window.clearTimeout(timeout);
-    parentSignal.removeEventListener("abort", abortWithParent);
-  }
-
-  const responseTime = performance.now() - startedAt;
-  return {
-    model: modelId,
-    responseTime,
-    status: working && responseTime <= TIME_LIMIT_MS ? "WORKING" : "NOT WORKING",
-  };
-}
+type ModelResult = ModelSpeedTestResult & { status: ModelStatus };
 
 const pageStyle = {
   minHeight: "100vh",
@@ -357,7 +256,7 @@ export default function AgentTestPage() {
                       >
                         {responseTime === null
                           ? "—"
-                          : responseTime >= TIME_LIMIT_MS
+                          : responseTime > MODEL_RESPONSE_TIME_LIMIT_MS
                             ? "> 1,000 ms"
                             : `${responseTime.toFixed(1)} ms`}
                       </td>

@@ -13,15 +13,50 @@ import {
 } from "@/lib/agent-monitoring";
 import type { TeamDashboard, TeamId } from "@/lib/agent-monitoring";
 import { agentModelsResponseSchema } from "@/lib/agent-models";
+import type { AgentModelsResponse } from "@/lib/agent-models";
+import {
+  MODEL_RESPONSE_TIME_LIMIT_MS,
+  testModel,
+} from "@/lib/agent-model-speed-test";
 import { resolveAgentTeamSummary } from "@/lib/agent-team-summary";
 import {
   saveAgentModelPreference,
   useAgentModelPreferences,
 } from "@/lib/agent-model-preferences";
-import { testModel } from "./AgentTestPage";
 import AgentChat from "./AgentChat";
 import AgentModelSettings from "./AgentModelSettings";
 import "./AgentTeamPage.css";
+
+const modelRequests = new Map<TeamId, Promise<AgentModelsResponse>>();
+
+function loadModels(teamId: TeamId) {
+  const existingRequest = modelRequests.get(teamId);
+  if (existingRequest) return existingRequest;
+
+  const request = fetch(`/api/agents/models?teamId=${encodeURIComponent(teamId)}`, {
+    cache: "no-store",
+  })
+    .then(async (response) => {
+      if (!response.ok) {
+        const result = (await response.json()) as { error?: string };
+        throw new Error(
+          result.error ?? `Model discovery returned ${response.status}.`,
+        );
+      }
+      const parsed = agentModelsResponseSchema.safeParse(await response.json());
+      if (!parsed.success) {
+        throw new Error("Model discovery returned invalid data.");
+      }
+      return parsed.data;
+    })
+    .catch((error: unknown) => {
+      modelRequests.delete(teamId);
+      throw error;
+    });
+
+  modelRequests.set(teamId, request);
+  return request;
+}
 
 type AgentTeamPageProps = {
   teamId: TeamId;
@@ -30,10 +65,10 @@ type AgentTeamPageProps = {
 
 type AgentModelState = {
   teamId: TeamId;
-  status: "loading" | "loaded" | "unavailable";
-  providerModels: string[];
+  status: "loading" | "testing" | "loaded" | "unavailable";
   models: string[];
-  testing: boolean;
+  testedModels: number;
+  totalModels: number;
   assignedModel: string | null;
   error: string;
   saving: boolean;
@@ -68,13 +103,12 @@ export default function AgentTeamPage({
   const currentModelState =
     agentModelState?.teamId === teamId ? agentModelState : null;
   const modelsLoading =
-    currentModelState === null || currentModelState.status === "loading";
+    view === "settings" &&
+    (currentModelState === null ||
+      currentModelState.status === "loading" ||
+      currentModelState.status === "testing");
   const availableModels =
     currentModelState?.status === "loaded" ? currentModelState.models : null;
-  const providerModels =
-    currentModelState?.status === "loaded"
-      ? currentModelState.providerModels
-      : [];
   const assignedModel =
     modelPreferences[teamId] ??
     (currentModelState?.status === "loaded"
@@ -97,21 +131,7 @@ export default function AgentTeamPage({
   useEffect(() => {
     let active = true;
     const eventSource = new EventSource("/api/monitoring/teams/stream");
-    const modelsController = new AbortController();
-    const modelsRequest = fetch(
-      `/api/agents/models?teamId=${encodeURIComponent(teamId)}`,
-      { cache: "no-store", signal: modelsController.signal },
-    );
-    setAgentModelState({
-      teamId,
-      status: "loading",
-      providerModels: [],
-      models: [],
-      testing: false,
-      assignedModel: null,
-      error: "",
-      saving: false,
-    });
+    const modelTestController = new AbortController();
 
     eventSource.onmessage = (event) => {
       if (!active) return;
@@ -127,87 +147,104 @@ export default function AgentTeamPage({
       if (active) setLoading(false);
     };
 
-    void modelsRequest
-      .then(async (response) => {
-        if (!response.ok) {
-          const result = (await response.json()) as { error?: string };
-          throw new Error(
-            result.error ?? `Model discovery returned ${response.status}.`,
-          );
-        }
-        const parsed = agentModelsResponseSchema.safeParse(
-          await response.json(),
-        );
-        if (!parsed.success) {
-          throw new Error("Model discovery returned invalid data.");
-        }
-        const availableModels = parsed.data.models;
-        if (active) {
-          setAgentModelState({
-            teamId,
-            status: "loaded",
-            providerModels: availableModels,
-            models: [],
-            testing: availableModels.length > 0,
-            assignedModel: parsed.data.assignedModel,
-            error: "",
-            saving: false,
-          });
-        }
-
-        const workingModels: string[] = [];
-        let nextModelIndex = 0;
-        const testNextModel = async () => {
-          while (active) {
-            const modelIndex = nextModelIndex++;
-            const model = availableModels[modelIndex];
-            if (!model) return;
-
-            const result = await testModel(model, modelsController.signal);
-            if (result.status === "WORKING") workingModels.push(model);
-          }
-        };
-        const workerCount = Math.min(5, availableModels.length);
-        await Promise.all(
-          Array.from({ length: workerCount }, () => testNextModel()),
-        );
-        if (active) {
-          setAgentModelState({
-            teamId,
-            status: "loaded",
-            providerModels: availableModels,
-            models: workingModels,
-            testing: false,
-            assignedModel: parsed.data.assignedModel,
-            error: "",
-            saving: false,
-          });
-        }
-      })
-      .catch((error: unknown) => {
-        if (!active || modelsController.signal.aborted) return;
-        console.error(`Unable to load ${teamId}'s model settings.`, error);
-        setAgentModelState({
-          teamId,
-          status: "unavailable",
-          providerModels: [],
-          models: [],
-          testing: false,
-          assignedModel: null,
-          error:
-            error instanceof Error
-              ? error.message
-              : "Unable to load available models.",
-          saving: false,
-        });
+    if (view === "settings") {
+      setAgentModelState({
+        teamId,
+        status: "loading",
+        models: [],
+        testedModels: 0,
+        totalModels: 0,
+        assignedModel: null,
+        error: "",
+        saving: false,
       });
+    }
+
+    if (view === "settings") {
+      void loadModels(teamId)
+        .then(async (result) => {
+          if (!active) return;
+          setAgentModelState({
+            teamId,
+            status: "testing",
+            models: [],
+            testedModels: 0,
+            totalModels: result.models.length,
+            assignedModel: result.assignedModel,
+            error: "",
+            saving: false,
+          });
+
+          let nextIndex = 0;
+          let testedModels = 0;
+          const workingModels: string[] = [];
+          const testNextModel = async () => {
+            while (active && !modelTestController.signal.aborted) {
+              const model = result.models[nextIndex++];
+              if (!model) return;
+
+              const testResult = await testModel(
+                model,
+                modelTestController.signal,
+              );
+              if (testResult.status === "WORKING") {
+                workingModels.push(model);
+              }
+              testedModels += 1;
+              if (active) {
+                setAgentModelState((current) =>
+                  current?.teamId === teamId
+                    ? { ...current, testedModels }
+                    : current,
+                );
+              }
+            }
+          };
+          const workerCount = Math.min(5, result.models.length);
+          await Promise.all(
+            Array.from({ length: workerCount }, () => testNextModel()),
+          );
+          if (!active) return;
+
+          const availableModels = result.models.filter((model) =>
+            workingModels.includes(model),
+          );
+          setAgentModelState({
+            teamId,
+            status: "loaded",
+            models: availableModels,
+            testedModels,
+            totalModels: result.models.length,
+            assignedModel: result.assignedModel,
+            error: "",
+            saving: false,
+          });
+        })
+        .catch((error: unknown) => {
+          if (!active || modelTestController.signal.aborted) return;
+          console.error(`Unable to load ${teamId}'s model settings.`, error);
+          setAgentModelState({
+            teamId,
+            status: "unavailable",
+            models: [],
+            testedModels: 0,
+            totalModels: 0,
+            assignedModel: null,
+            error:
+              error instanceof Error
+                ? error.message
+                : "Unable to load available models.",
+            saving: false,
+          });
+        });
+    }
 
     return () => {
       active = false;
-      modelsController.abort();
+      modelTestController.abort();
       eventSource.close();
     };
-  }, [acceptDashboard, teamId]);
+  }, [acceptDashboard, teamId, view]);
 
   if (!team) return null;
 
@@ -346,7 +383,12 @@ export default function AgentTeamPage({
           key={`${teamId}-${modelSettingsAssignedModel ?? "unassigned"}`}
           assignedModel={modelSettingsAssignedModel}
           error={currentModelState?.error ?? ""}
-          loading={modelsLoading || (currentModelState?.testing ?? false)}
+          loading={modelsLoading}
+          loadingMessage={
+            currentModelState?.status === "testing"
+              ? `Testing response speed: ${currentModelState.testedModels}/${currentModelState.totalModels} models. Showing models responding within ${MODEL_RESPONSE_TIME_LIMIT_MS} ms.`
+              : "Loading available models…"
+          }
           models={availableModels}
           onSave={saveModel}
           saving={currentModelState?.saving ?? false}
@@ -358,7 +400,6 @@ export default function AgentTeamPage({
         <AgentChat
           assignedModel={assignedModel}
           loading={modelsLoading}
-          models={providerModels}
           teamId={teamId}
           teamName={team.name}
           teamRole={team.role}

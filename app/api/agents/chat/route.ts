@@ -1,6 +1,8 @@
 import { z } from "zod";
 import { isSameOriginRequest } from "@/lib/agent-admin-auth";
 import {
+  getNvidiaErrorStatus,
+  getNvidiaRetryAfter,
   listNvidiaModels,
   NvidiaConfigurationError,
   streamNvidiaCompletion,
@@ -29,6 +31,16 @@ const requestSchema = z
       .max(20),
   })
   .superRefine(({ messages }, context) => {
+    messages.forEach((message, index) => {
+      const expectedRole = index % 2 === 0 ? "user" : "assistant";
+      if (message.role !== expectedRole) {
+        context.addIssue({
+          code: "custom",
+          message: "Messages must start with a user and alternate roles.",
+          path: ["messages", index, "role"],
+        });
+      }
+    });
     const totalCharacters = messages.reduce(
       (total, message) => total + message.content.length,
       0,
@@ -122,6 +134,9 @@ export async function POST(request: Request) {
   try {
     availableModels = await listNvidiaModels(request.signal);
   } catch (error) {
+    if (request.signal.aborted) {
+      return Response.json({ error: "Chat request was cancelled." }, { status: 499 });
+    }
     if (error instanceof NvidiaConfigurationError) {
       return Response.json(
         { error: error.message },
@@ -129,13 +144,8 @@ export async function POST(request: Request) {
       );
     }
 
-    const status =
-      typeof error === "object" &&
-      error !== null &&
-      "status" in error &&
-      typeof error.status === "number"
-        ? error.status
-        : undefined;
+    const status = getNvidiaErrorStatus(error);
+    const retryAfter = status === 429 ? (getNvidiaRetryAfter(error) ?? "60") : null;
     console.error("Unable to verify the selected NVIDIA model.", {
       status,
       message:
@@ -144,11 +154,16 @@ export async function POST(request: Request) {
     return Response.json(
       {
         error:
-          status === 401 || status === 403
-            ? "NVIDIA rejected the server credentials."
-            : "Unable to verify the selected model with NVIDIA.",
+          status === 429
+            ? "NVIDIA rate-limited model discovery. Please try again later."
+            : status === 401 || status === 403
+              ? "NVIDIA rejected the server credentials."
+              : "Unable to verify the selected model with NVIDIA.",
       },
-      { status: status === 401 || status === 403 ? 503 : 502 },
+      {
+        status: status === 429 ? 429 : status === 401 || status === 403 ? 503 : 502,
+        ...(retryAfter ? { headers: { "Retry-After": retryAfter } } : {}),
+      },
     );
   }
 
@@ -176,13 +191,11 @@ export async function POST(request: Request) {
       request.signal,
     );
   } catch (error) {
-    const status =
-      typeof error === "object" &&
-      error !== null &&
-      "status" in error &&
-      typeof error.status === "number"
-        ? error.status
-        : undefined;
+    if (request.signal.aborted) {
+      return Response.json({ error: "Chat request was cancelled." }, { status: 499 });
+    }
+    const status = getNvidiaErrorStatus(error);
+    const retryAfter = status === 429 ? (getNvidiaRetryAfter(error) ?? "60") : null;
     console.error(`Unable to start ${team.name}'s NVIDIA completion.`, {
       status,
       message:
@@ -205,44 +218,71 @@ export async function POST(request: Request) {
         status:
           status === 400 || status === 404
             ? 400
-            : status === 401 || status === 403 || status === 429
+            : status === 429
+              ? 429
+              : status === 401 || status === 403
               ? 503
               : 502,
+        ...(retryAfter ? { headers: { "Retry-After": retryAfter } } : {}),
       },
     );
   }
 
   const encoder = new TextEncoder();
+  let closed = false;
+  let abortRequest = () => {};
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
       const emit = (value: string) => {
+        if (closed || request.signal.aborted) return;
         controller.enqueue(encoder.encode(`data: ${value}\n\n`));
       };
+      const close = () => {
+        if (closed) return;
+        closed = true;
+        request.signal.removeEventListener("abort", abort);
+        controller.close();
+      };
+      const abort = () => {
+        void completion.controller.abort();
+        close();
+      };
+      abortRequest = abort;
+      request.signal.addEventListener("abort", abortRequest, { once: true });
+      if (request.signal.aborted) abortRequest();
 
       try {
         for await (const chunk of completion) {
+          if (closed || request.signal.aborted) return;
           const content = chunk.choices[0]?.delta?.content;
           if (content) emit(JSON.stringify({ content }));
         }
         emit("[DONE]");
-        controller.close();
+        close();
       } catch (error) {
-        const status =
-          typeof error === "object" &&
-          error !== null &&
-          "status" in error &&
-          typeof error.status === "number"
-            ? error.status
-            : undefined;
+        if (closed || request.signal.aborted) return;
+        const status = getNvidiaErrorStatus(error);
+        const retryAfter = status === 429 ? (getNvidiaRetryAfter(error) ?? "60") : null;
         console.error(`${team.name} NVIDIA response stream failed.`, {
           status,
           message:
             error instanceof Error ? error.message : "Unknown provider error.",
         });
-        controller.error(new Error(`${team.name}'s response stream was interrupted.`));
+        emit(
+          JSON.stringify({
+            error:
+              status === 429
+                ? "NVIDIA rate-limited this response. Please try again later."
+                : `${team.name}'s response stream was interrupted.`,
+            ...(retryAfter ? { retryAfter } : {}),
+          }),
+        );
+        close();
       }
     },
     async cancel() {
+      closed = true;
+      request.signal.removeEventListener("abort", abortRequest);
       await completion.controller.abort();
     },
   });

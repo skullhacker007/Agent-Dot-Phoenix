@@ -1,12 +1,9 @@
 import { timingSafeEqual } from "node:crypto";
-import {
-  AgentEventType,
-  AgentRuntimeStatus,
-  Prisma,
-  TeamId,
-} from "@prisma/client";
 import { z } from "zod";
-import { getPrisma } from "@/server/database/prisma";
+import {
+  MonitoringConflictError,
+  recordMonitoringEvent,
+} from "@/server/agents/monitoring-store";
 
 const MAX_EVENT_BODY_BYTES = 16_384;
 
@@ -57,31 +54,6 @@ const eventSchema = z.discriminatedUnion("type", [
     execution: executionSchema.merge(tokenUsageSchema),
   }),
 ]);
-
-type AgentEventInput = z.infer<typeof eventSchema>;
-
-const eventTypes = {
-  heartbeat: AgentEventType.HEARTBEAT,
-  run_started: AgentEventType.RUN_STARTED,
-  run_progress: AgentEventType.RUN_PROGRESS,
-  run_succeeded: AgentEventType.RUN_SUCCEEDED,
-  run_failed: AgentEventType.RUN_FAILED,
-} satisfies Record<AgentEventInput["type"], AgentEventType>;
-
-const runtimeStatuses = {
-  idle: AgentRuntimeStatus.IDLE,
-  working: AgentRuntimeStatus.WORKING,
-  failed: AgentRuntimeStatus.FAILED,
-} as const;
-
-const teamIds = {
-  JARVIS: TeamId.JARVIS,
-  FRIDAY: TeamId.FRIDAY,
-  ULTRON: TeamId.ULTRON,
-  VISION: TeamId.VISION,
-} satisfies Record<AgentEventInput["teamId"], TeamId>;
-
-class EventConflictError extends Error {}
 
 function hasValidToken(request: Request) {
   const expected = process.env.AGENT_MONITORING_TOKEN;
@@ -167,171 +139,17 @@ export async function POST(request: Request) {
     );
   }
 
-  const event = parsed.data;
-  const prisma = getPrisma();
-  const receivedAt = new Date();
-
   try {
-    await prisma.$transaction(async (transaction) => {
-      await transaction.subAgent.upsert({
-        where: { id: event.agent.id },
-        create: {
-          id: event.agent.id,
-          teamId: teamIds[event.teamId],
-          name: event.agent.name,
-          role: event.agent.role,
-          status:
-            event.type === "heartbeat"
-              ? runtimeStatuses[event.status]
-              : event.type === "run_failed"
-                ? AgentRuntimeStatus.FAILED
-                : event.type === "run_succeeded"
-                  ? AgentRuntimeStatus.IDLE
-                  : AgentRuntimeStatus.WORKING,
-          provider: event.agent.provider ?? null,
-          model: event.agent.model ?? null,
-          lastHeartbeatAt: receivedAt,
-          lastSuccessfulExecutionAt:
-            event.type === "run_succeeded" ? receivedAt : null,
-        },
-        update: {
-          teamId: teamIds[event.teamId],
-          name: event.agent.name,
-          role: event.agent.role,
-          provider: event.agent.provider,
-          model: event.agent.model,
-          lastHeartbeatAt: receivedAt,
-        },
-      });
-
-      await transaction.agentEvent.create({
-        data: {
-          id: event.eventId,
-          agentId: event.agent.id,
-          type: eventTypes[event.type],
-          executionId: "execution" in event ? event.execution.id : null,
-          receivedAt,
-        },
-      });
-
-      if (event.type === "heartbeat") {
-        await transaction.subAgent.update({
-          where: { id: event.agent.id },
-          data: { status: runtimeStatuses[event.status] },
-        });
-        return;
-      }
-
-      if (event.type === "run_started") {
-        await transaction.agentExecution.create({
-          data: {
-            id: event.execution.id,
-            agentId: event.agent.id,
-            status: "RUNNING",
-            provider: event.execution.provider ?? event.agent.provider ?? null,
-            model: event.execution.model ?? event.agent.model ?? null,
-            startedAt: receivedAt,
-          },
-        });
-        await transaction.subAgent.update({
-          where: { id: event.agent.id },
-          data: {
-            status: AgentRuntimeStatus.WORKING,
-            provider: event.execution.provider ?? event.agent.provider,
-            model: event.execution.model ?? event.agent.model,
-          },
-        });
-        return;
-      }
-
-      if (event.type === "run_progress") {
-        const result = await transaction.agentExecution.updateMany({
-          where: {
-            id: event.execution.id,
-            agentId: event.agent.id,
-            status: "RUNNING",
-          },
-          data: {
-            inputTokens: event.execution.inputTokens,
-            outputTokens: event.execution.outputTokens,
-            provider: event.execution.provider ?? event.agent.provider,
-            model: event.execution.model ?? event.agent.model,
-          },
-        });
-        if (result.count !== 1) {
-          throw new EventConflictError("Progress event does not match a running execution.");
-        }
-        await transaction.subAgent.update({
-          where: { id: event.agent.id },
-          data: {
-            status: AgentRuntimeStatus.WORKING,
-            provider: event.execution.provider ?? event.agent.provider,
-            model: event.execution.model ?? event.agent.model,
-          },
-        });
-        return;
-      }
-
-      const status =
-        event.type === "run_succeeded" ? "SUCCEEDED" : "FAILED";
-      const result = await transaction.agentExecution.updateMany({
-        where: {
-          id: event.execution.id,
-          agentId: event.agent.id,
-          status: "RUNNING",
-        },
-        data: {
-          status,
-          inputTokens: event.execution.inputTokens,
-          outputTokens: event.execution.outputTokens,
-          provider: event.execution.provider ?? event.agent.provider,
-          model: event.execution.model ?? event.agent.model,
-          finishedAt: receivedAt,
-        },
-      });
-      if (result.count !== 1) {
-        throw new EventConflictError("Completion event does not match a running execution.");
-      }
-
-      await transaction.subAgent.update({
-        where: { id: event.agent.id },
-        data: {
-          status:
-            event.type === "run_succeeded"
-              ? AgentRuntimeStatus.IDLE
-              : AgentRuntimeStatus.FAILED,
-          ...(event.type === "run_succeeded"
-            ? { lastSuccessfulExecutionAt: receivedAt }
-            : {}),
-        },
-      });
-    });
+    const result = recordMonitoringEvent(parsed.data);
+    return Response.json({ accepted: true, ...result });
   } catch (error) {
-    if (error instanceof EventConflictError) {
+    if (error instanceof MonitoringConflictError) {
       return Response.json({ error: error.message }, { status: 409 });
     }
-    if (error instanceof Prisma.PrismaClientKnownRequestError) {
-      if (error.code === "P2002") {
-        const existingEvent = await prisma.agentEvent.findUnique({
-          where: { id: event.eventId },
-          select: { id: true },
-        });
-        if (existingEvent) {
-          return Response.json({ accepted: true, duplicate: true });
-        }
-        return Response.json(
-          { error: "Execution ID already exists." },
-          { status: 409 },
-        );
-      }
-      console.error("Failed to persist agent monitoring event.", error);
-      return Response.json(
-        { error: "Unable to persist agent monitoring event." },
-        { status: 500 },
-      );
-    }
-    throw error;
+    console.error("Failed to record agent monitoring event.", error);
+    return Response.json(
+      { error: "Unable to record agent monitoring event." },
+      { status: 500 },
+    );
   }
-
-  return Response.json({ accepted: true });
 }

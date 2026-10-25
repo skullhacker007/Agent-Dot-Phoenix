@@ -13,7 +13,6 @@ import {
   subscribeToAgentActivity,
 } from "@/lib/agent-activity";
 import type { AgentActivity } from "@/lib/agent-activity";
-import { agentModelsResponseSchema } from "@/lib/agent-models";
 import { useAgentModelPreferences } from "@/lib/agent-model-preferences";
 import { resolveAgentTeamSummary } from "@/lib/agent-team-summary";
 import "./RobotAvatar.css";
@@ -114,9 +113,6 @@ export default function RobotAvatar() {
     Partial<Record<TeamId, AgentActivity>>
   >({});
   const [monitoringLoading, setMonitoringLoading] = useState(true);
-  const [discoveredModels, setDiscoveredModels] = useState<
-    Partial<Record<TeamId, string | null>>
-  >({});
   const modelPreferences = useAgentModelPreferences();
   useEffect(() => {
     const refreshActivity = (teamId: TeamId, activity: AgentActivity | null) => {
@@ -208,39 +204,6 @@ export default function RobotAvatar() {
   }, []);
 
   useEffect(() => {
-    let active = true;
-    void Promise.all(
-      TEAM_DEFINITIONS.map(async ({ id }) => {
-        try {
-          const response = await fetch(
-            `/api/agents/models?teamId=${encodeURIComponent(id)}`,
-            { cache: "no-store" },
-          );
-          if (!response.ok) {
-            throw new Error(`Model discovery returned ${response.status}.`);
-          }
-          const parsed = agentModelsResponseSchema.safeParse(
-            await response.json(),
-          );
-          if (!parsed.success) {
-            throw new Error("Model discovery returned invalid data.");
-          }
-          return [id, parsed.data.assignedModel] as const;
-        } catch (error) {
-          console.error(`Unable to discover the ${id} model assignment.`, error);
-          return [id, null] as const;
-        }
-      }),
-    ).then((assignments) => {
-      if (active) setDiscoveredModels(Object.fromEntries(assignments));
-    });
-
-    return () => {
-      active = false;
-    };
-  }, []);
-
-  useEffect(() => {
     if (!splineLoaded || visibleAgentCount >= TEAM_DEFINITIONS.length) return;
 
     const delay = visibleAgentCount === 0 ? 700 : 220;
@@ -303,7 +266,6 @@ export default function RobotAvatar() {
               activity={chatActivity[agent.id] ?? null}
               assignedModel={
                 modelPreferences[agent.id] ??
-                discoveredModels[agent.id] ??
                 teamDashboards.find(({ id }) => id === agent.id)?.assignedModel ??
                 null
               }
@@ -329,7 +291,6 @@ export default function RobotAvatar() {
               activity={chatActivity[agent.id] ?? null}
               assignedModel={
                 modelPreferences[agent.id] ??
-                discoveredModels[agent.id] ??
                 teamDashboards.find(({ id }) => id === agent.id)?.assignedModel ??
                 null
               }

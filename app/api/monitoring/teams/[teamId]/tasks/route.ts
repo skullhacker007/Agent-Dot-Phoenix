@@ -1,19 +1,14 @@
 import { randomUUID } from "node:crypto";
-import { AgentEventType, TeamId } from "@prisma/client";
 import { z } from "zod";
 import {
   isAdminSessionValid,
   isSameOriginRequest,
 } from "@/lib/agent-admin-auth";
 import { TEAM_DEFINITIONS } from "@/lib/agent-monitoring";
-import { getPrisma } from "@/server/database/prisma";
-
-const teamIds = {
-  JARVIS: TeamId.JARVIS,
-  FRIDAY: TeamId.FRIDAY,
-  ULTRON: TeamId.ULTRON,
-  VISION: TeamId.VISION,
-} as const;
+import {
+  MonitoringConflictError,
+  queueMonitoredTask,
+} from "@/server/agents/monitoring-store";
 
 const taskSchema = z.object({
   title: z.string().trim().min(1).max(200),
@@ -65,47 +60,14 @@ export async function POST(request: Request, context: RouteContext) {
     );
   }
 
-  const prisma = getPrisma();
   const id = randomUUID();
   try {
-    if (parsed.data.agentId) {
-      const agent = await prisma.subAgent.findFirst({
-        where: {
-          id: parsed.data.agentId,
-          teamId: teamIds[team.id],
-        },
-        select: { id: true },
-      });
-      if (!agent) {
-        return Response.json(
-          { error: "Selected agent does not belong to this team." },
-          { status: 400 },
-        );
-      }
-    }
-
-    const task = await prisma.$transaction(async (transaction) => {
-      const createdTask = await transaction.agentTask.create({
-        data: {
-          id,
-          teamId: teamIds[team.id],
-          agentId: parsed.data.agentId,
-          title: parsed.data.title,
-          description: parsed.data.description,
-        },
-      });
-
-      if (parsed.data.agentId) {
-        await transaction.agentEvent.create({
-          data: {
-            id: randomUUID(),
-            agentId: parsed.data.agentId,
-            type: AgentEventType.TASK_QUEUED,
-          },
-        });
-      }
-
-      return createdTask;
+    const task = queueMonitoredTask({
+      id,
+      teamId: team.id,
+      agentId: parsed.data.agentId,
+      title: parsed.data.title,
+      description: parsed.data.description,
     });
 
     return Response.json(
@@ -113,6 +75,9 @@ export async function POST(request: Request, context: RouteContext) {
       { status: 201 },
     );
   } catch (error) {
+    if (error instanceof MonitoringConflictError) {
+      return Response.json({ error: error.message }, { status: 400 });
+    }
     console.error("Failed to queue agent task.", error);
     return Response.json({ error: "Unable to queue task." }, { status: 500 });
   }

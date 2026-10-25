@@ -9,10 +9,7 @@ export async function GET(request: Request) {
   } catch (error) {
     console.error("Unable to load the initial monitoring dashboard.", error);
     return Response.json(
-      {
-        error:
-          "Monitoring data is unavailable. Configure DATABASE_URL and verify database connectivity.",
-      },
+      { error: "Unable to load monitoring data." },
       { status: 503 },
     );
   }
@@ -26,7 +23,7 @@ export async function GET(request: Request) {
       let refreshing = false;
 
       const send = (event: string, value: unknown) => {
-        if (closed) return;
+        if (closed || request.signal.aborted) return;
         const eventHeader = event ? `event: ${event}\n` : "";
         controller.enqueue(
           encoder.encode(
@@ -54,7 +51,7 @@ export async function GET(request: Request) {
       send("", initialDashboard);
 
       const refresh = async () => {
-        if (refreshing || closed) return;
+        if (refreshing || closed || request.signal.aborted) return;
         refreshing = true;
         try {
           send("", await getMonitoringDashboard());

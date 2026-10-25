@@ -8,10 +8,7 @@ export async function GET() {
   } catch (error) {
     console.error("Unable to load the monitoring dashboard.", error);
     return Response.json(
-      {
-        error:
-          "Monitoring data is unavailable. Configure DATABASE_URL and verify database connectivity.",
-      },
+      { error: "Unable to load monitoring data." },
       { status: 503 },
     );
   }

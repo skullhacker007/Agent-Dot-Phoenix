@@ -16,7 +16,6 @@ type AgentChatProps = {
   teamId: TeamId;
   teamName: string;
   teamRole: string;
-  models: string[];
   assignedModel: string | null;
   loading: boolean;
 };
@@ -41,12 +40,10 @@ export default function AgentChat({
   teamId,
   teamName,
   teamRole,
-  models,
   assignedModel,
   loading: modelsLoading,
 }: AgentChatProps) {
-  const assignedModelAvailable =
-    assignedModel !== null && models.includes(assignedModel);
+  const assignedModelAvailable = assignedModel !== null;
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [draft, setDraft] = useState("");
   const [error, setError] = useState("");
@@ -81,17 +78,32 @@ export default function AgentChat({
       role: "assistant",
       content: "",
     };
-    const conversation = [...messages, userMessage]
-      .slice(-20)
-      .map(({ role, content: messageContent }) => ({
-        role,
-        content: messageContent,
-      }));
+    const conversation: Array<Pick<ChatMessage, "role" | "content">> = [];
+    for (const { role, content: messageContent } of [
+      ...messages,
+      userMessage,
+    ]) {
+      if (!messageContent.trim()) continue;
+      const previous = conversation.at(-1);
+      if (!previous && role === "assistant") continue;
+      if (previous?.role === role) {
+        previous.content =
+          role === "user"
+            ? `${previous.content}\n${messageContent}`
+            : `${previous.content}${messageContent}`;
+      } else {
+        conversation.push({ role, content: messageContent });
+      }
+    }
+    const recentConversation = conversation.slice(-20);
+    if (recentConversation[0]?.role === "assistant") {
+      recentConversation.shift();
+    }
     const controller = new AbortController();
     activeRequest.current = controller;
     const activity = {
       inputTokens: estimateTokens(
-        conversation
+        recentConversation
           .map(({ content: messageContent }) => messageContent)
           .join(" "),
       ),
@@ -126,7 +138,7 @@ export default function AgentChat({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           teamId,
-          messages: conversation,
+          messages: recentConversation,
           modelId: assignedModel,
         }),
         signal: controller.signal,
@@ -166,6 +178,14 @@ export default function AgentChat({
           throw new Error(`${teamName} returned an invalid response stream.`, {
             cause,
           });
+        }
+        if (
+          typeof payload === "object" &&
+          payload !== null &&
+          "error" in payload &&
+          typeof payload.error === "string"
+        ) {
+          throw new Error(payload.error);
         }
         if (
           typeof payload !== "object" ||

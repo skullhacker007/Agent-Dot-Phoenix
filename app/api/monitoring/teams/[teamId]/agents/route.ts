@@ -1,19 +1,11 @@
 import { randomUUID } from "node:crypto";
-import { AgentEventType, AgentRuntimeStatus, TeamId } from "@prisma/client";
 import { z } from "zod";
 import {
   isAdminSessionValid,
   isSameOriginRequest,
 } from "@/lib/agent-admin-auth";
 import { TEAM_DEFINITIONS } from "@/lib/agent-monitoring";
-import { getPrisma } from "@/server/database/prisma";
-
-const teamIds = {
-  JARVIS: TeamId.JARVIS,
-  FRIDAY: TeamId.FRIDAY,
-  ULTRON: TeamId.ULTRON,
-  VISION: TeamId.VISION,
-} as const;
+import { createMonitoredAgent } from "@/server/agents/monitoring-store";
 
 const agentSchema = z.object({
   name: z.string().trim().min(1).max(120),
@@ -68,30 +60,15 @@ export async function POST(request: Request, context: RouteContext) {
   }
 
   const agentId = randomUUID();
-  const prisma = getPrisma();
   try {
-    const agent = await prisma.subAgent.create({
-      data: {
+    const agent = createMonitoredAgent({
         id: agentId,
-        teamId: teamIds[team.id],
+        teamId: team.id,
         name: parsed.data.name,
         role: parsed.data.role,
         instructions: parsed.data.instructions,
-        provider: parsed.data.provider || null,
-        model: parsed.data.model || null,
-        status: AgentRuntimeStatus.IDLE,
-        events: {
-          create: {
-            id: randomUUID(),
-            type: AgentEventType.AGENT_CREATED,
-          },
-        },
-      },
-      select: {
-        id: true,
-        name: true,
-        role: true,
-      },
+        provider: parsed.data.provider,
+        model: parsed.data.model,
     });
 
     return Response.json({ agent }, { status: 201 });
