@@ -3,15 +3,22 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import {
+  getAgentActivity,
+  subscribeToAgentActivity,
+} from "@/lib/agent-activity";
+import type { AgentActivity } from "@/lib/agent-activity";
+import {
   TEAM_DEFINITIONS,
   dashboardResponseSchema,
 } from "@/lib/agent-monitoring";
 import type { TeamDashboard, TeamId } from "@/lib/agent-monitoring";
 import { agentModelsResponseSchema } from "@/lib/agent-models";
+import { resolveAgentTeamSummary } from "@/lib/agent-team-summary";
 import {
   saveAgentModelPreference,
   useAgentModelPreferences,
 } from "@/lib/agent-model-preferences";
+import { testModel } from "./AgentTestPage";
 import AgentChat from "./AgentChat";
 import AgentModelSettings from "./AgentModelSettings";
 import "./AgentTeamPage.css";
@@ -24,7 +31,9 @@ type AgentTeamPageProps = {
 type AgentModelState = {
   teamId: TeamId;
   status: "loading" | "loaded" | "unavailable";
+  providerModels: string[];
   models: string[];
+  testing: boolean;
   assignedModel: string | null;
   error: string;
   saving: boolean;
@@ -39,6 +48,7 @@ export default function AgentTeamPage({
   const [loading, setLoading] = useState(true);
   const [agentModelState, setAgentModelState] =
     useState<AgentModelState | null>(null);
+  const [chatActivity, setChatActivity] = useState<AgentActivity | null>(null);
   const modelPreferences = useAgentModelPreferences();
 
   const acceptDashboard = useCallback(
@@ -61,23 +71,43 @@ export default function AgentTeamPage({
     currentModelState === null || currentModelState.status === "loading";
   const availableModels =
     currentModelState?.status === "loaded" ? currentModelState.models : null;
+  const providerModels =
+    currentModelState?.status === "loaded"
+      ? currentModelState.providerModels
+      : [];
   const assignedModel =
     modelPreferences[teamId] ??
     (currentModelState?.status === "loaded"
       ? currentModelState.assignedModel
-      : null);
+      : null) ??
+    dashboard?.assignedModel ??
+    null;
+
+  useEffect(() => {
+    const refresh = (activity: AgentActivity | null) => {
+      setChatActivity(activity);
+    };
+    refresh(getAgentActivity(teamId));
+    const unsubscribe = subscribeToAgentActivity((changedTeamId, activity) => {
+      if (changedTeamId === teamId) refresh(activity);
+    });
+    return unsubscribe;
+  }, [teamId]);
 
   useEffect(() => {
     let active = true;
     const eventSource = new EventSource("/api/monitoring/teams/stream");
+    const modelsController = new AbortController();
     const modelsRequest = fetch(
       `/api/agents/models?teamId=${encodeURIComponent(teamId)}`,
-      { cache: "no-store" },
+      { cache: "no-store", signal: modelsController.signal },
     );
     setAgentModelState({
       teamId,
       status: "loading",
+      providerModels: [],
       models: [],
+      testing: false,
       assignedModel: null,
       error: "",
       saving: false,
@@ -111,11 +141,43 @@ export default function AgentTeamPage({
         if (!parsed.success) {
           throw new Error("Model discovery returned invalid data.");
         }
+        const availableModels = parsed.data.models;
         if (active) {
           setAgentModelState({
             teamId,
             status: "loaded",
-            models: parsed.data.models,
+            providerModels: availableModels,
+            models: [],
+            testing: availableModels.length > 0,
+            assignedModel: parsed.data.assignedModel,
+            error: "",
+            saving: false,
+          });
+        }
+
+        const workingModels: string[] = [];
+        let nextModelIndex = 0;
+        const testNextModel = async () => {
+          while (active) {
+            const modelIndex = nextModelIndex++;
+            const model = availableModels[modelIndex];
+            if (!model) return;
+
+            const result = await testModel(model, modelsController.signal);
+            if (result.status === "WORKING") workingModels.push(model);
+          }
+        };
+        const workerCount = Math.min(5, availableModels.length);
+        await Promise.all(
+          Array.from({ length: workerCount }, () => testNextModel()),
+        );
+        if (active) {
+          setAgentModelState({
+            teamId,
+            status: "loaded",
+            providerModels: availableModels,
+            models: workingModels,
+            testing: false,
             assignedModel: parsed.data.assignedModel,
             error: "",
             saving: false,
@@ -123,32 +185,49 @@ export default function AgentTeamPage({
         }
       })
       .catch((error: unknown) => {
+        if (!active || modelsController.signal.aborted) return;
         console.error(`Unable to load ${teamId}'s model settings.`, error);
-        if (active) {
-          setAgentModelState({
-            teamId,
-            status: "unavailable",
-            models: [],
-            assignedModel: null,
-            error:
-              error instanceof Error
-                ? error.message
-                : "Unable to load available models.",
-            saving: false,
-          });
-        }
+        setAgentModelState({
+          teamId,
+          status: "unavailable",
+          providerModels: [],
+          models: [],
+          testing: false,
+          assignedModel: null,
+          error:
+            error instanceof Error
+              ? error.message
+              : "Unable to load available models.",
+          saving: false,
+        });
       });
 
     return () => {
       active = false;
+      modelsController.abort();
       eventSource.close();
     };
-  }, [acceptDashboard, teamId, view]);
+  }, [acceptDashboard, teamId]);
 
   if (!team) return null;
 
   const agents = dashboard?.agents ?? [];
   const queuedTasks = dashboard?.tasks ?? [];
+  const teamSummary = resolveAgentTeamSummary(
+    dashboard,
+    assignedModel,
+    chatActivity,
+    loading,
+  );
+  const hasChatAgent = teamSummary.chatAgentStatus !== null;
+  const chatAgentStatus = teamSummary.chatAgentStatus;
+  const showAgentMetrics = teamSummary.total !== null;
+  const modelSettingsAssignedModel =
+    availableModels !== null &&
+    assignedModel !== null &&
+    !availableModels.includes(assignedModel)
+      ? null
+      : assignedModel;
 
   async function saveModel(modelId: string) {
     setAgentModelState((current) =>
@@ -208,11 +287,6 @@ export default function AgentTeamPage({
             )}
           </div>
           <div className="agent-team-header-actions">
-            <span
-              className={`agent-team-status status-${dashboard?.status ?? "offline"}`}
-            >
-              {dashboard?.status ?? (loading ? "Loading" : "Offline")}
-            </span>
             {view === "dashboard" && (
               <Link
                 aria-label={`${team.name} settings`}
@@ -240,14 +314,12 @@ export default function AgentTeamPage({
         {view === "dashboard" && (
           <section className="agent-team-stats" aria-label="Team overview">
             {[
-              ["Sub-agents", dashboard?.counts.total],
-              ["Working", dashboard?.counts.working],
-              ["Idle", dashboard?.counts.idle],
+              ["Agents", showAgentMetrics ? teamSummary.total : undefined],
+              ["Working", showAgentMetrics ? teamSummary.working : undefined],
+              ["Idle", showAgentMetrics ? teamSummary.idle : undefined],
               [
                 "Issues",
-                dashboard
-                  ? dashboard.counts.failed + dashboard.counts.stalled
-                  : undefined,
+                showAgentMetrics ? teamSummary.issues : undefined,
               ],
             ].map(([label, value]) => (
               <div className="agent-team-stat" key={label}>
@@ -271,10 +343,10 @@ export default function AgentTeamPage({
 
       {view === "settings" && (
         <AgentModelSettings
-          key={`${teamId}-${assignedModel ?? "unassigned"}`}
-          assignedModel={assignedModel}
+          key={`${teamId}-${modelSettingsAssignedModel ?? "unassigned"}`}
+          assignedModel={modelSettingsAssignedModel}
           error={currentModelState?.error ?? ""}
-          loading={modelsLoading}
+          loading={modelsLoading || (currentModelState?.testing ?? false)}
           models={availableModels}
           onSave={saveModel}
           saving={currentModelState?.saving ?? false}
@@ -286,7 +358,7 @@ export default function AgentTeamPage({
         <AgentChat
           assignedModel={assignedModel}
           loading={modelsLoading}
-          models={availableModels ?? []}
+          models={providerModels}
           teamId={teamId}
           teamName={team.name}
           teamRole={team.role}
@@ -298,12 +370,54 @@ export default function AgentTeamPage({
           <div className="agent-team-section-heading">
             <div>
               <p className="agent-team-eyebrow">TEAM ROSTER</p>
-              <h2>Sub-agents</h2>
+              <h2>Agents</h2>
             </div>
-            <span>{agents.length} registered</span>
+            <span>
+              {agents.length + Number(hasChatAgent)} registered
+            </span>
           </div>
-          {agents.length ? (
+          {agents.length || hasChatAgent ? (
             <div className="agent-team-roster">
+              {hasChatAgent && (
+                <article className="agent-roster-card">
+                  <div className="agent-roster-heading">
+                    <div>
+                      <h3>{team.name} Assistant</h3>
+                      <p>Chat assistant</p>
+                    </div>
+                    <span
+                      aria-label={`${team.name} Assistant status: ${chatAgentStatus}`}
+                      className={`agent-team-status status-${chatAgentStatus}`}
+                      role="img"
+                      title={chatAgentStatus ?? "idle"}
+                    />
+                  </div>
+                  <dl>
+                    <div>
+                      <dt>Model</dt>
+                      <dd>{assignedModel}</dd>
+                    </div>
+                    <div>
+                      <dt>Estimated session tokens</dt>
+                      <dd>
+                        {chatActivity
+                          ? `${formatTokens(chatActivity.inputTokens)} IN · ${formatTokens(chatActivity.outputTokens)} OUT`
+                          : "—"}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>Last activity</dt>
+                      <dd>
+                        {chatActivity
+                          ? formatDate(
+                              new Date(chatActivity.updatedAt).toISOString(),
+                            )
+                          : "—"}
+                      </dd>
+                    </div>
+                  </dl>
+                </article>
+              )}
               {agents.map((agent) => (
                 <article className="agent-roster-card" key={agent.id}>
                   <div className="agent-roster-heading">
@@ -311,9 +425,12 @@ export default function AgentTeamPage({
                       <h3>{agent.name}</h3>
                       <p>{agent.role}</p>
                     </div>
-                    <span className={`agent-team-status status-${agent.status}`}>
-                      {agent.status}
-                    </span>
+                    <span
+                      aria-label={`${agent.name} status: ${agent.status}`}
+                      className={`agent-team-status status-${agent.status}`}
+                      role="img"
+                      title={agent.status}
+                    />
                   </div>
                   <dl>
                     <div>

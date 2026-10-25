@@ -7,9 +7,15 @@ import {
   TEAM_DEFINITIONS,
   dashboardResponseSchema,
 } from "@/lib/agent-monitoring";
-import type { TeamDashboard } from "@/lib/agent-monitoring";
+import type { TeamDashboard, TeamId } from "@/lib/agent-monitoring";
+import {
+  getAgentActivity,
+  subscribeToAgentActivity,
+} from "@/lib/agent-activity";
+import type { AgentActivity } from "@/lib/agent-activity";
 import { agentModelsResponseSchema } from "@/lib/agent-models";
 import { useAgentModelPreferences } from "@/lib/agent-model-preferences";
+import { resolveAgentTeamSummary } from "@/lib/agent-team-summary";
 import "./RobotAvatar.css";
 
 const Spline = dynamic(() => import("@splinetool/react-spline"), {
@@ -104,11 +110,38 @@ export default function RobotAvatar() {
   const [splineLoaded, setSplineLoaded] = useState(false);
   const [visibleAgentCount, setVisibleAgentCount] = useState(0);
   const [teamDashboards, setTeamDashboards] = useState<TeamDashboard[]>([]);
+  const [chatActivity, setChatActivity] = useState<
+    Partial<Record<TeamId, AgentActivity>>
+  >({});
   const [monitoringLoading, setMonitoringLoading] = useState(true);
-  const [visionDefaultModel, setVisionDefaultModel] = useState<string | null>(
-    null,
-  );
+  const [discoveredModels, setDiscoveredModels] = useState<
+    Partial<Record<TeamId, string | null>>
+  >({});
   const modelPreferences = useAgentModelPreferences();
+  useEffect(() => {
+    const refreshActivity = (teamId: TeamId, activity: AgentActivity | null) => {
+      setChatActivity((current) => {
+        const next = { ...current };
+        if (activity === null) delete next[teamId];
+        else next[teamId] = activity;
+        return next;
+      });
+    };
+
+    const refreshAllActivity = () => {
+      for (const { id } of TEAM_DEFINITIONS) {
+        refreshActivity(id, getAgentActivity(id));
+      }
+    };
+    refreshAllActivity();
+    const activityRefreshTimer = window.setInterval(refreshAllActivity, 30_000);
+    const unsubscribe = subscribeToAgentActivity(refreshActivity);
+
+    return () => {
+      window.clearInterval(activityRefreshTimer);
+      unsubscribe();
+    };
+  }, []);
 
   useEffect(() => {
     const idleWindow = window as IdleCallbackWindow;
@@ -176,24 +209,31 @@ export default function RobotAvatar() {
 
   useEffect(() => {
     let active = true;
-
-    void fetch("/api/agents/models?teamId=VISION", { cache: "no-store" })
-      .then(async (response) => {
-        if (!response.ok) {
-          throw new Error(`Vision model discovery returned ${response.status}.`);
+    void Promise.all(
+      TEAM_DEFINITIONS.map(async ({ id }) => {
+        try {
+          const response = await fetch(
+            `/api/agents/models?teamId=${encodeURIComponent(id)}`,
+            { cache: "no-store" },
+          );
+          if (!response.ok) {
+            throw new Error(`Model discovery returned ${response.status}.`);
+          }
+          const parsed = agentModelsResponseSchema.safeParse(
+            await response.json(),
+          );
+          if (!parsed.success) {
+            throw new Error("Model discovery returned invalid data.");
+          }
+          return [id, parsed.data.assignedModel] as const;
+        } catch (error) {
+          console.error(`Unable to discover the ${id} model assignment.`, error);
+          return [id, null] as const;
         }
-        const parsed = agentModelsResponseSchema.safeParse(
-          await response.json(),
-        );
-        if (!parsed.success) {
-          throw new Error("Vision model discovery returned invalid data.");
-        }
-        if (active) setVisionDefaultModel(parsed.data.assignedModel);
-      })
-      .catch((error: unknown) => {
-        if (!active) return;
-        console.error("Unable to load Vision's default model for its card.", error);
-      });
+      }),
+    ).then((assignments) => {
+      if (active) setDiscoveredModels(Object.fromEntries(assignments));
+    });
 
     return () => {
       active = false;
@@ -260,8 +300,10 @@ export default function RobotAvatar() {
               key={agent.agentId}
               team={agent}
               dashboard={teamDashboards.find(({ id }) => id === agent.id)}
+              activity={chatActivity[agent.id] ?? null}
               assignedModel={
                 modelPreferences[agent.id] ??
+                discoveredModels[agent.id] ??
                 teamDashboards.find(({ id }) => id === agent.id)?.assignedModel ??
                 null
               }
@@ -284,10 +326,11 @@ export default function RobotAvatar() {
               key={agent.agentId}
               team={agent}
               dashboard={teamDashboards.find(({ id }) => id === agent.id)}
+              activity={chatActivity[agent.id] ?? null}
               assignedModel={
                 modelPreferences[agent.id] ??
+                discoveredModels[agent.id] ??
                 teamDashboards.find(({ id }) => id === agent.id)?.assignedModel ??
-                (agent.id === "VISION" ? visionDefaultModel : null) ??
                 null
               }
               loading={monitoringLoading}
@@ -444,6 +487,7 @@ function NaviHeader() {
 function AgentCard({
   team,
   dashboard,
+  activity,
   assignedModel,
   loading,
   revealed,
@@ -452,26 +496,50 @@ function AgentCard({
 }: {
   team: (typeof TEAM_DEFINITIONS)[number];
   dashboard: TeamDashboard | undefined;
+  activity: AgentActivity | null;
   assignedModel: string | null;
   loading: boolean;
   revealed: boolean;
   selected: boolean;
   onSelect: () => void;
 }) {
-  const status = dashboard?.status ?? (loading ? "loading" : "idle");
-  const statusLabel = dashboard?.status ?? (loading ? "Loading" : "Idle");
+  const hasAssignedModel = Boolean(assignedModel ?? dashboard?.assignedModel);
+  const summary = resolveAgentTeamSummary(
+    dashboard,
+    assignedModel ?? dashboard?.assignedModel ?? null,
+    activity,
+    loading,
+  );
+  const status = summary.status;
+  const statusLabel =
+    status === "attention" || status === "stalled"
+      ? "Error"
+      : status === "loading"
+        ? "Loading"
+        : status.charAt(0).toUpperCase() + status.slice(1);
+  const isWorking = (summary.working ?? 0) > 0;
+  const hasError = summary.issues !== null && summary.issues > 0;
   const visibleMembers = dashboard?.agents.slice(0, 2) ?? [];
   const modelSummary = assignedModel
     ? assignedModel
     : dashboard?.models.length
       ? dashboard.models.join(", ")
     : "No Model assigned";
-  const inputUsage = dashboard?.tokens.input ?? null;
-  const outputUsage = dashboard?.tokens.output ?? null;
+  const hasSessionUsage =
+    activity !== null &&
+    (activity.inputTokens > 0 || activity.outputTokens > 0);
+  const inputUsage = hasSessionUsage
+    ? activity.inputTokens
+    : dashboard?.tokens.input ?? null;
+  const outputUsage = hasSessionUsage
+    ? activity.outputTokens
+    : dashboard?.tokens.output ?? null;
   const usageMax = Math.max(inputUsage ?? 0, outputUsage ?? 0);
-  const tokenRate = getEstimatedTokenRate(dashboard);
-  const isWorking = (dashboard?.counts.working ?? 0) > 0;
-
+  const tokenRate = hasSessionUsage
+    ? activity.status === "working"
+      ? activity.tokensPerSecond
+      : null
+    : getEstimatedTokenRate(dashboard);
   return (
     <article
       className={`navi-agent-card ${selected ? "is-selected" : ""} ${
@@ -510,22 +578,26 @@ function AgentCard({
       <div className="navi-team-metrics">
         <div>
           <span className="navi-metric-label">TOTAL</span>
-          <strong>{dashboard?.counts.total ?? "—"}</strong>
+          <strong>
+            {summary.total ?? "—"}
+          </strong>
         </div>
         <div>
           <span className="navi-metric-label">WORKING</span>
-          <strong>{dashboard?.counts.working ?? "—"}</strong>
+          <strong>
+            {summary.working ?? "—"}
+          </strong>
         </div>
         <div>
           <span className="navi-metric-label">IDLE</span>
-          <strong>{dashboard?.counts.idle ?? "—"}</strong>
+          <strong>
+            {summary.idle ?? "—"}
+          </strong>
         </div>
         <div>
           <span className="navi-metric-label">ISSUES</span>
           <strong>
-            {dashboard
-              ? dashboard.counts.failed + dashboard.counts.stalled
-              : "—"}
+            {summary.issues ?? "—"}
           </strong>
         </div>
       </div>
@@ -536,9 +608,9 @@ function AgentCard({
       </div>
 
       <div
-        className={`navi-gpu-module ${isWorking ? "is-running" : ""}`}
+        className={`navi-gpu-module ${isWorking ? "is-running" : ""} ${hasError ? "has-error" : ""}`}
         role="group"
-        aria-label={`Compute module ${isWorking ? "working" : "idle"}`}
+        aria-label={`Compute module ${hasError ? "error" : isWorking ? "working" : hasAssignedModel ? "ready" : "idle"}`}
       >
         <div className="navi-gpu-hardware" aria-hidden="true">
           <span className="navi-gpu-fan" />
@@ -547,7 +619,14 @@ function AgentCard({
         <div className="navi-gpu-telemetry">
           <div className="navi-gpu-telemetry-heading">
             <span className="navi-metric-label">
-              GPU · {isWorking ? "ACTIVE" : "IDLE"}
+              GPU ·{" "}
+              {hasError
+                ? "ERROR"
+                : isWorking
+                  ? "ACTIVE"
+                  : hasAssignedModel
+                    ? "READY"
+                    : "IDLE"}
             </span>
             <strong>
               {tokenRate === null
@@ -557,7 +636,7 @@ function AgentCard({
           </div>
           <div
             className="navi-gpu-usage"
-            aria-label={`Today's token usage: ${formatTokenCount(inputUsage)} input and ${formatTokenCount(outputUsage)} output`}
+            aria-label={`${hasSessionUsage ? "Estimated current session" : "Today's"} token usage: ${formatTokenCount(inputUsage)} input and ${formatTokenCount(outputUsage)} output`}
           >
             <div className="navi-gpu-usage-row">
               <span>IN</span>
@@ -569,7 +648,11 @@ function AgentCard({
                   }}
                 />
               </span>
-              <strong>{formatTokenCount(inputUsage)}</strong>
+              <strong>
+                {hasSessionUsage
+                  ? `~${formatTokenCount(inputUsage)}`
+                  : formatTokenCount(inputUsage)}
+              </strong>
             </div>
             <div className="navi-gpu-usage-row">
               <span>OUT</span>
@@ -581,7 +664,11 @@ function AgentCard({
                   }}
                 />
               </span>
-              <strong>{formatTokenCount(outputUsage)}</strong>
+              <strong>
+                {hasSessionUsage
+                  ? `~${formatTokenCount(outputUsage)}`
+                  : formatTokenCount(outputUsage)}
+              </strong>
             </div>
           </div>
         </div>

@@ -188,14 +188,27 @@ export async function POST(request: Request) {
       message:
         error instanceof Error ? error.message : "Unknown provider error.",
     });
+    const errorMessage =
+      status === 400 || status === 404
+        ? "The selected model does not support chat completions or is unavailable."
+        : status === 429
+          ? "NVIDIA rate-limited this model. Please try again later."
+          : `${team.name} could not connect to its model provider.`;
     return Response.json(
       {
         error:
           status === 401 || status === 403
             ? "NVIDIA rejected the server credentials."
-            : `${team.name} could not connect to its model provider.`,
+            : errorMessage,
       },
-      { status: 502 },
+      {
+        status:
+          status === 400 || status === 404
+            ? 400
+            : status === 401 || status === 403 || status === 429
+              ? 503
+              : 502,
+      },
     );
   }
 

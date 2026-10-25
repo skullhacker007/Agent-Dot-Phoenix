@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
+import { setAgentActivity } from "@/lib/agent-activity";
 import type { TeamId } from "@/lib/agent-monitoring";
 import "./AgentChat.css";
 
@@ -30,6 +31,10 @@ function getErrorMessage(payload: unknown, teamName: string) {
     return payload.error;
   }
   return `${teamName} could not process the request.`;
+}
+
+function estimateTokens(text: string) {
+  return text ? Math.ceil(text.length / 4) : 0;
 }
 
 export default function AgentChat({
@@ -84,6 +89,30 @@ export default function AgentChat({
       }));
     const controller = new AbortController();
     activeRequest.current = controller;
+    const activity = {
+      inputTokens: estimateTokens(
+        conversation
+          .map(({ content: messageContent }) => messageContent)
+          .join(" "),
+      ),
+      outputTokens: 0,
+      tokensPerSecond: 0,
+      startedAt: Date.now(),
+    };
+    const publishActivity = (status: "idle" | "working" | "error") => {
+      activity.tokensPerSecond =
+        activity.outputTokens > 0
+          ? Math.round(
+              activity.outputTokens /
+                Math.max(1, (Date.now() - activity.startedAt) / 1000),
+            )
+          : 0;
+      setAgentActivity(teamId, { status, ...activity });
+    };
+    publishActivity("working");
+    const activityHeartbeat = window.setInterval(() => {
+      publishActivity("working");
+    }, 30_000);
     let responseText = "";
 
     setMessages((current) => [...current, userMessage, assistantMessage]);
@@ -148,6 +177,8 @@ export default function AgentChat({
         }
 
         responseText += payload.content;
+        activity.outputTokens = estimateTokens(responseText);
+        publishActivity("working");
         setMessages((current) =>
           current.map((message) =>
             message.id === assistantMessage.id
@@ -179,10 +210,17 @@ export default function AgentChat({
       }
 
       if (!responseText) {
-        throw new Error(`${teamName} returned an empty response. Please try again.`);
+        throw new Error(
+          `${teamName} returned an empty response. Please try again.`,
+        );
       }
+      publishActivity("idle");
     } catch (caught) {
-      if (caught instanceof Error && caught.name === "AbortError") return;
+      if (caught instanceof Error && caught.name === "AbortError") {
+        publishActivity("idle");
+        return;
+      }
+      publishActivity("error");
       setMessages((current) =>
         current.filter(
           (message) =>
@@ -195,6 +233,7 @@ export default function AgentChat({
           : `${teamName} could not process the request.`,
       );
     } finally {
+      window.clearInterval(activityHeartbeat);
       submitting.current = false;
       if (activeRequest.current === controller) {
         activeRequest.current = null;
@@ -206,89 +245,104 @@ export default function AgentChat({
   return (
     <aside className={`agent-chat-widget ${open ? "is-open" : ""}`}>
       {open ? (
-    <section className="agent-chat" aria-label={`${teamName} assistant chat`}>
-      <div className="agent-chat-heading">
-        <p className="agent-chat-eyebrow">{teamName} ASSISTANT</p>
-        <div className="agent-chat-heading-actions">
-          <button
-            aria-label={`Minimize ${teamName} chat`}
-            className="agent-chat-close"
-            onClick={() => setOpen(false)}
-            type="button"
-          >
-            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-              <path d="M5 12h14" />
-            </svg>
-          </button>
-        </div>
-      </div>
+        <section
+          className="agent-chat"
+          aria-label={`${teamName} assistant chat`}
+        >
+          <div className="agent-chat-heading">
+            <p className="agent-chat-eyebrow">{teamName} ASSISTANT</p>
+            <div className="agent-chat-heading-actions">
+              <button
+                aria-label={`Minimize ${teamName} chat`}
+                className="agent-chat-close"
+                onClick={() => setOpen(false)}
+                type="button"
+              >
+                <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <path d="M5 12h14" />
+                </svg>
+              </button>
+            </div>
+          </div>
 
-      <div className="agent-chat-transcript" role="log" aria-live="polite">
-        {messages.length === 0 ? (
-          <p className="agent-chat-empty">
-            {assignedModelAvailable
-              ? `Ask ${teamName} about ${teamRole.toLowerCase()}.`
-              : modelsLoading
-                ? "Loading available models…"
-                : "Select an available NVIDIA model in settings to start chatting."}
-          </p>
-        ) : (
-          messages.map((message) => (
-            <article
-              className={`agent-chat-message is-${message.role}`}
-              key={message.id}
-            >
-              <span>{message.role === "user" ? "You" : teamName}</span>
-              <p>
-                {message.content ||
-                  (busy && message.role === "assistant" ? "Thinking…" : "")}
+          <div className="agent-chat-transcript" role="log" aria-live="polite">
+            {messages.length === 0 ? (
+              <p className="agent-chat-empty">
+                {assignedModelAvailable
+                  ? `Ask ${teamName} about ${teamRole.toLowerCase()}.`
+                  : modelsLoading
+                    ? "Loading available models…"
+                    : "Select an available NVIDIA model in settings to start chatting."}
               </p>
-            </article>
-          ))
-        )}
-      </div>
+            ) : (
+              messages.map((message) => (
+                <article
+                  className={`agent-chat-message is-${message.role}`}
+                  key={message.id}
+                >
+                  <p>
+                    {message.content ||
+                      (busy && message.role === "assistant" ? "Thinking…" : "")}
+                  </p>
+                </article>
+              ))
+            )}
+          </div>
 
-      {error && (
-        <p className="agent-chat-error" role="alert">
-          {error}
-        </p>
-      )}
+          {error && (
+            <p className="agent-chat-error" role="alert">
+              {error}
+            </p>
+          )}
 
-      <form className="agent-chat-form" onSubmit={sendMessage}>
-        <label className="agent-chat-input-label" htmlFor="agent-chat-input">
-          Message {teamName}
-        </label>
-        <textarea
-          id="agent-chat-input"
-          maxLength={4000}
-          onChange={(event) => setDraft(event.target.value)}
-          placeholder={`Message ${teamName} about ${teamRole.toLowerCase()}...`}
-          rows={2}
-          value={draft}
-          disabled={busy}
-        />
-        <div className="agent-chat-form-footer">
-          <span>
-            {teamId === "VISION"
-              ? "Informational analysis only · Avoid sharing sensitive data"
-              : teamId === "ULTRON"
-                ? "Defensive cybersecurity assistance only"
-                : "Avoid sharing sensitive data"}
-          </span>
-          <button
-            type="submit"
-            disabled={
-              busy ||
-              modelsLoading ||
-              !assignedModelAvailable ||
-              !draft.trim()
-            }
-          >
-            {busy ? "Thinking..." : "Send"}
-          </button>
-        </div>
-      </form>
-    </section>
+          <form className="agent-chat-form" onSubmit={sendMessage}>
+            <label
+              className="agent-chat-input-label"
+              htmlFor="agent-chat-input"
+            >
+              Message {teamName}
+            </label>
+            <textarea
+              id="agent-chat-input"
+              maxLength={4000}
+              onChange={(event) => setDraft(event.target.value)}
+              onKeyDown={(event) => {
+                if (
+                  event.key === "Enter" &&
+                  !event.shiftKey &&
+                  !event.nativeEvent.isComposing
+                ) {
+                  event.preventDefault();
+                  event.currentTarget.form?.requestSubmit();
+                }
+              }}
+              placeholder={`Message ${teamName} about ${teamRole.toLowerCase()}...`}
+              rows={2}
+              value={draft}
+              disabled={busy}
+            />
+            <div className="agent-chat-form-footer">
+              <span>
+                {teamId === "VISION"
+                  ? "Avoid sharing sensitive data"
+                  : teamId === "ULTRON"
+                    ? "Defensive cybersecurity assistance only"
+                    : "Avoid sharing sensitive data"}
+              </span>
+              <button
+                type="submit"
+                disabled={
+                  busy ||
+                  modelsLoading ||
+                  !assignedModelAvailable ||
+                  !draft.trim()
+                }
+              >
+                {busy ? "Thinking..." : "Send"}
+              </button>
+            </div>
+          </form>
+        </section>
       ) : (
         <button
           aria-expanded={open}
@@ -302,7 +356,9 @@ export default function AgentChat({
             <path d="M8.5 11.5h.01m3.49 0h.01m3.49 0h.01" />
           </svg>
           <span>Chat with {teamName}</span>
-          <span className={`agent-chat-launcher-status ${assignedModelAvailable ? "is-ready" : ""}`} />
+          <span
+            className={`agent-chat-launcher-status ${assignedModelAvailable ? "is-ready" : ""}`}
+          />
         </button>
       )}
     </aside>

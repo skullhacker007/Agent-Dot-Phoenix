@@ -1,8 +1,4 @@
-import {
-  DEFAULT_VISION_MODEL_ID,
-  listNvidiaModels,
-  NvidiaConfigurationError,
-} from "@/lib/nvidia";
+import { listNvidiaModels, NvidiaConfigurationError } from "@/lib/nvidia";
 
 export async function GET(request: Request) {
   try {
@@ -11,9 +7,7 @@ export async function GET(request: Request) {
     return Response.json(
       {
         models,
-        assignedModel: models.includes(DEFAULT_VISION_MODEL_ID)
-          ? DEFAULT_VISION_MODEL_ID
-          : null,
+        assignedModel: null,
       },
       { headers: { "Cache-Control": "no-store" } },
     );

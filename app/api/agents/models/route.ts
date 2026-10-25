@@ -1,7 +1,6 @@
 import { z } from "zod";
 import type { TeamId } from "@/lib/agent-monitoring";
 import {
-  DEFAULT_VISION_MODEL_ID,
   listNvidiaModels,
   NvidiaConfigurationError,
 } from "@/lib/nvidia";
@@ -21,12 +20,8 @@ export async function GET(request: Request) {
 
   try {
     const models = await listNvidiaModels(request.signal);
-    const assignedModel =
-      teamId === "VISION" && models.includes(DEFAULT_VISION_MODEL_ID)
-        ? DEFAULT_VISION_MODEL_ID
-        : null;
     return Response.json(
-      { models, assignedModel },
+      { models, assignedModel: null },
       { headers: { "Cache-Control": "no-store" } },
     );
   } catch (error) {

@@ -3,7 +3,19 @@ import { connection } from "next/server";
 
 export async function GET(request: Request) {
   await connection();
-  const initialDashboard = await getMonitoringDashboard();
+  let initialDashboard: Awaited<ReturnType<typeof getMonitoringDashboard>>;
+  try {
+    initialDashboard = await getMonitoringDashboard();
+  } catch (error) {
+    console.error("Unable to load the initial monitoring dashboard.", error);
+    return Response.json(
+      {
+        error:
+          "Monitoring data is unavailable. Configure DATABASE_URL and verify database connectivity.",
+      },
+      { status: 503 },
+    );
+  }
   const encoder = new TextEncoder();
   let interval: ReturnType<typeof setInterval> | undefined;
   let cleanup = () => {};

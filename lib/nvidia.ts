@@ -1,14 +1,9 @@
 import "server-only";
 
 import OpenAI from "openai";
-import type {
-  ChatCompletionCreateParamsStreaming,
-  ChatCompletionMessageParam,
-} from "openai/resources/chat/completions";
+import type { ChatCompletionMessageParam } from "openai/resources/chat/completions";
 
 const NVIDIA_BASE_URL = "https://integrate.api.nvidia.com/v1";
-
-export const DEFAULT_VISION_MODEL_ID = "nvidia/nemotron-3-ultra-550b-a55b";
 
 export class NvidiaConfigurationError extends Error {
   constructor(message = "NVIDIA_API_KEY is not configured.") {
@@ -48,20 +43,12 @@ export function streamNvidiaCompletion(
   signal?: AbortSignal,
 ) {
   const client = createNvidiaClient();
-  const params: ChatCompletionCreateParamsStreaming & {
-    chat_template_kwargs: { enable_thinking: boolean };
-  } = {
-    model,
-    messages,
-    temperature: 1,
-    top_p: 0.95,
-    max_tokens: 16_384,
-    chat_template_kwargs: { enable_thinking: true },
-    stream: true,
-  };
-
   return client.chat.completions.create(
-    params,
+    {
+      model,
+      messages,
+      stream: true,
+    },
     { signal },
   );
 }

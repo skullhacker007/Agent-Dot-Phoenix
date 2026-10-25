@@ -41,7 +41,9 @@ export default function AgentModelSettings({
       </div>
 
       {loading ? (
-        <p className="agent-model-note">Loading available models…</p>
+        <p className="agent-model-note">
+          Checking model response speeds…
+        </p>
       ) : models?.length ? (
         <>
           <label className="agent-model-select-label" htmlFor="agent-model">
@@ -52,11 +54,6 @@ export default function AgentModelSettings({
               value={selectedModel}
             >
               <option value="">Select an available model</option>
-              {assignedModel && !models.includes(assignedModel) && (
-                <option disabled value={assignedModel}>
-                  {assignedModel} (unavailable)
-                </option>
-              )}
               {models.map((model) => (
                 <option key={model} value={model}>
                   {model}
@@ -89,7 +86,7 @@ export default function AgentModelSettings({
         <p className="agent-model-note">
           {models === null
             ? error || "Available models could not be loaded. Check the provider connection."
-            : "No models are currently available from the provider."}
+            : "No models passed the response-speed test."}
         </p>
       )}
     </section>
