@@ -1,0 +1,700 @@
+.vision-market-data {
+  margin-top: 2rem;
+  margin-bottom: 4rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.vision-market-data-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+  border-bottom: 0.0625rem solid color-mix(in srgb, currentColor 12%, transparent);
+  padding-bottom: 1.125rem;
+}
+
+.vision-market-data-header h2 {
+  margin: 0.25rem 0 0;
+  font-size: clamp(1.25rem, 2.2vw, 1.65rem);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.vision-market-data-header-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.vision-market-data-provider-tag {
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted, #94a0b2);
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.vision-live-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.71875rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 0.25rem 0.625rem;
+  border-radius: 99rem;
+  background: rgba(85, 214, 160, 0.12);
+  color: #55d6a0;
+  border: 0.0625rem solid rgba(85, 214, 160, 0.35);
+}
+
+.vision-live-dot {
+  width: 0.4375rem;
+  height: 0.4375rem;
+  border-radius: 50%;
+  background-color: #55d6a0;
+  animation: pulse-dot 1.8s infinite ease-in-out;
+}
+
+@keyframes pulse-dot {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.4;
+    transform: scale(1.3);
+  }
+}
+
+.vision-header-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+}
+
+.vision-btn {
+  border: 0.0625rem solid color-mix(in srgb, currentColor 22%, transparent);
+  background: color-mix(in srgb, currentColor 4%, transparent);
+  color: inherit;
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.875rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  transition: all 0.15s ease;
+}
+
+.vision-btn:hover {
+  background: color-mix(in srgb, currentColor 12%, transparent);
+  border-color: color-mix(in srgb, currentColor 35%, transparent);
+}
+
+.vision-btn.active {
+  background: rgba(85, 214, 160, 0.18);
+  border-color: #55d6a0;
+  color: #55d6a0;
+}
+
+.vision-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Analytics Summary Cards */
+.vision-analytics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(13.5rem, 1fr));
+  gap: 0.875rem;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.vision-stat-card {
+  border: 0.0625rem solid color-mix(in srgb, currentColor 14%, transparent);
+  border-radius: 0.75rem;
+  padding: 0.875rem 1rem;
+  background: color-mix(in srgb, currentColor 3%, transparent);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 0.5rem;
+  min-width: 0;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.vision-stat-card-title {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted, #94a0b2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+.vision-stat-card-main {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+  min-width: 0;
+  width: 100%;
+}
+
+.vision-stat-card-symbol-row {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  width: 100%;
+}
+
+.vision-stat-card-footer-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  min-width: 0;
+  width: 100%;
+}
+
+.vision-stat-card-value {
+  font-size: 1.25rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.25;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+.vision-stat-card-symbol {
+  font-size: 1.0625rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+  width: 100%;
+}
+
+.vision-stat-card-price {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--muted, #94a0b2);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+.vision-stat-card-sub {
+  font-size: 0.78125rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.vision-breadth-bar {
+  height: 0.375rem;
+  width: 100%;
+  border-radius: 99rem;
+  display: flex;
+  overflow: hidden;
+  background: color-mix(in srgb, currentColor 10%, transparent);
+  margin-top: 0.25rem;
+}
+
+.vision-breadth-advance {
+  background-color: #55d6a0;
+  height: 100%;
+}
+
+.vision-breadth-decline {
+  background-color: #ff8a90;
+  height: 100%;
+}
+
+/* Filter & Search Bar */
+.vision-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-top: 0.25rem;
+}
+
+.vision-filter-tabs {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  flex-wrap: wrap;
+}
+
+.vision-filter-tab {
+  background: transparent;
+  border: 0.0625rem solid color-mix(in srgb, currentColor 15%, transparent);
+  color: var(--muted, #94a0b2);
+  padding: 0.375rem 0.75rem;
+  border-radius: 0.375rem;
+  font-size: 0.78125rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.vision-filter-tab:hover {
+  color: inherit;
+  border-color: color-mix(in srgb, currentColor 28%, transparent);
+}
+
+.vision-filter-tab.active {
+  background: color-mix(in srgb, currentColor 12%, transparent);
+  border-color: color-mix(in srgb, currentColor 40%, transparent);
+  color: inherit;
+}
+
+.vision-search-box {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.vision-search-input {
+  background: color-mix(in srgb, currentColor 4%, transparent);
+  border: 0.0625rem solid color-mix(in srgb, currentColor 18%, transparent);
+  color: inherit;
+  padding: 0.4375rem 0.75rem;
+  border-radius: 0.5rem;
+  font-size: 0.8125rem;
+  width: 12.5rem;
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+
+.vision-search-input:focus {
+  border-color: #55d6a0;
+}
+
+/* Table */
+.vision-table-card {
+  border: 0.0625rem solid color-mix(in srgb, currentColor 16%, transparent);
+  border-radius: 0.875rem;
+  overflow: hidden;
+  background: color-mix(in srgb, currentColor 2.5%, transparent);
+}
+
+.vision-table-wrap {
+  overflow-x: auto;
+}
+
+.vision-stocks-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 0.8125rem;
+}
+
+.vision-stocks-table th {
+  font-size: 0.6875rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted, #94a0b2);
+  font-weight: 700;
+  padding: 0.75rem 0.875rem;
+  border-bottom: 0.0625rem solid color-mix(in srgb, currentColor 14%, transparent);
+  background: color-mix(in srgb, currentColor 3%, transparent);
+  white-space: nowrap;
+}
+
+.vision-stocks-table td {
+  padding: 0.75rem 0.875rem;
+  border-bottom: 0.0625rem solid color-mix(in srgb, currentColor 8%, transparent);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.vision-stocks-table tbody tr {
+  transition: background 0.12s ease;
+}
+
+.vision-stocks-table tbody tr:hover {
+  background: color-mix(in srgb, currentColor 6%, transparent);
+}
+
+.vision-instrument-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.vision-instrument-symbol {
+  font-weight: 700;
+  font-size: 0.90625rem;
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.vision-instrument-tag {
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  padding: 0.125rem 0.375rem;
+  border-radius: 0.25rem;
+  background: color-mix(in srgb, currentColor 10%, transparent);
+  color: var(--muted, #94a0b2);
+}
+
+.vision-instrument-name {
+  font-size: 0.75rem;
+  color: var(--muted, #94a0b2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+.vision-price {
+  font-weight: 700;
+  font-size: 0.9375rem;
+}
+
+.vision-change-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.vision-change-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-weight: 700;
+  font-size: 0.78125rem;
+  padding: 0.1875rem 0.5rem;
+  border-radius: 0.375rem;
+  width: fit-content;
+}
+
+.vision-change-badge.positive {
+  color: #55d6a0;
+  background: rgba(85, 214, 160, 0.14);
+}
+
+.vision-change-badge.negative {
+  color: #ff8a90;
+  background: rgba(255, 138, 144, 0.14);
+}
+
+.vision-change-badge.neutral {
+  color: var(--muted, #94a0b2);
+  background: color-mix(in srgb, currentColor 8%, transparent);
+}
+
+/* Day Range Bar */
+.vision-range-cell {
+  min-width: 8.75rem;
+}
+
+.vision-range-labels {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.71875rem;
+  color: var(--muted, #94a0b2);
+  gap: 0.5rem;
+  min-width: 0;
+  white-space: nowrap;
+  margin-bottom: 0.25rem;
+}
+
+.vision-range-labels span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.vision-range-track {
+  height: 0.25rem;
+  background: color-mix(in srgb, currentColor 15%, transparent);
+  border-radius: 99rem;
+  position: relative;
+}
+
+.vision-range-thumb {
+  position: absolute;
+  top: 50%;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: currentColor;
+  transform: translate(-50%, -50%);
+}
+
+/* Depth Pressure Bar */
+.vision-depth-bar {
+  width: 6.25rem;
+  height: 0.3125rem;
+  border-radius: 99rem;
+  display: flex;
+  overflow: hidden;
+  background: color-mix(in srgb, currentColor 10%, transparent);
+  margin-top: 0.25rem;
+}
+
+.vision-depth-buy {
+  background: #55d6a0;
+}
+
+.vision-depth-sell {
+  background: #ff8a90;
+}
+
+/* Market Depth Modal */
+.vision-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(0.25rem);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 1.25rem;
+}
+
+.vision-modal-content {
+  background: var(--background, #0c1017);
+  border: 0.0625rem solid color-mix(in srgb, currentColor 25%, transparent);
+  border-radius: 1rem;
+  padding: 1.5rem;
+  width: 100%;
+  max-width: 38.75rem;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 1.25rem 2.5rem rgba(0, 0, 0, 0.5);
+}
+
+.vision-modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  border-bottom: 0.0625rem solid color-mix(in srgb, currentColor 12%, transparent);
+  padding-bottom: 0.875rem;
+  margin-bottom: 1rem;
+}
+
+.vision-modal-close {
+  background: transparent;
+  border: 0.0625rem solid color-mix(in srgb, currentColor 20%, transparent);
+  color: inherit;
+  border-radius: 0.5rem;
+  width: 2rem;
+  height: 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 1.1rem;
+}
+
+.vision-depth-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.875rem;
+  margin-top: 0.875rem;
+}
+
+.vision-depth-col {
+  border: 0.0625rem solid color-mix(in srgb, currentColor 12%, transparent);
+  border-radius: 0.625rem;
+  padding: 0.75rem;
+  background: color-mix(in srgb, currentColor 2%, transparent);
+}
+
+.vision-depth-col-title {
+  font-size: 0.71875rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-bottom: 0.5rem;
+}
+
+.vision-depth-col.buy .vision-depth-col-title {
+  color: #55d6a0;
+}
+
+.vision-depth-col.sell .vision-depth-col-title {
+  color: #ff8a90;
+}
+
+.vision-depth-table {
+  width: 100%;
+  font-size: 0.78125rem;
+  border-collapse: collapse;
+}
+
+.vision-depth-table th {
+  color: var(--muted, #94a0b2);
+  font-size: 0.65625rem;
+  font-weight: 600;
+  padding: 0.25rem 0.375rem;
+  border-bottom: 0.0625rem solid color-mix(in srgb, currentColor 10%, transparent);
+}
+
+.vision-depth-table td {
+  padding: 0.375rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.vision-circuits-row {
+  display: flex;
+  gap: 1rem;
+  margin-top: 1rem;
+  padding: 0.75rem;
+  border-radius: 0.5rem;
+  background: color-mix(in srgb, currentColor 3%, transparent);
+  border: 0.0625rem solid color-mix(in srgb, currentColor 10%, transparent);
+}
+
+.vision-circuit-item {
+  flex: 1;
+}
+
+.vision-circuit-item dt {
+  font-size: 0.6875rem;
+  text-transform: uppercase;
+  color: var(--muted, #94a0b2);
+  margin-bottom: 0.125rem;
+}
+
+.vision-circuit-item dd {
+  font-size: 0.9375rem;
+  font-weight: 700;
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.text-success {
+  color: #55d6a0;
+}
+
+.text-danger {
+  color: #ff8a90;
+}
+
+/* Pagination Bar */
+.vision-pagination-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.875rem 1.125rem;
+  border-top: 0.0625rem solid color-mix(in srgb, currentColor 10%, transparent);
+  background: color-mix(in srgb, currentColor 1.5%, transparent);
+}
+
+.vision-pagination-info {
+  font-size: 0.8125rem;
+  color: var(--muted, #94a0b2);
+}
+
+.vision-pagination-info strong {
+  color: inherit;
+  font-weight: 700;
+}
+
+.vision-pagination-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1rem;
+}
+
+.vision-page-size-selector {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.78125rem;
+  color: var(--muted, #94a0b2);
+}
+
+.vision-page-size-select {
+  background: color-mix(in srgb, currentColor 6%, transparent);
+  border: 0.0625rem solid color-mix(in srgb, currentColor 18%, transparent);
+  color: inherit;
+  border-radius: 0.375rem;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.78125rem;
+  outline: none;
+  cursor: pointer;
+  transition: border-color 0.15s ease;
+}
+
+.vision-page-size-select:focus {
+  border-color: #55d6a0;
+}
+
+.vision-page-nav-buttons {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.vision-page-btn {
+  background: color-mix(in srgb, currentColor 4%, transparent);
+  border: 0.0625rem solid color-mix(in srgb, currentColor 18%, transparent);
+  color: inherit;
+  border-radius: 0.375rem;
+  padding: 0.25rem 0.625rem;
+  font-size: 0.78125rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.vision-page-btn:hover:not(:disabled) {
+  background: color-mix(in srgb, currentColor 12%, transparent);
+  border-color: color-mix(in srgb, currentColor 32%, transparent);
+}
+
+.vision-page-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.vision-page-indicator {
+  font-size: 0.78125rem;
+  color: var(--muted, #94a0b2);
+  padding: 0 0.25rem;
+}
+
+.vision-page-indicator strong {
+  color: inherit;
+  font-weight: 700;
+}

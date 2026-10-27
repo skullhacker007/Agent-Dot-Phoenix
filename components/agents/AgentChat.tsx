@@ -366,7 +366,8 @@ export default function AgentChat({
       ) : (
         <button
           aria-expanded={open}
-          aria-label={`Open ${teamName} chat`}
+          aria-label={`Chat with ${teamName}`}
+          title={`Chat with ${teamName}`}
           className="agent-chat-launcher"
           onClick={() => setOpen(true)}
           type="button"

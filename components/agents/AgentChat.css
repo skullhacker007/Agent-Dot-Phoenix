@@ -1,40 +1,40 @@
 .agent-chat-widget {
   position: fixed;
-  right: 24px;
-  bottom: 24px;
+  right: 1.5rem;
+  bottom: 1.5rem;
   z-index: 45;
 }
 
 .agent-chat {
   display: flex;
-  width: min(400px, calc(100vw - 32px));
-  height: min(560px, calc(100dvh - 128px));
+  width: min(25rem, calc(100vw - 2rem));
+  height: min(35rem, calc(100dvh - 8rem));
   flex-direction: column;
   overflow: hidden;
-  border: 1px solid rgba(148, 163, 184, 0.16);
-  border-radius: 18px;
+  border: 0.0625rem solid rgba(148, 163, 184, 0.16);
+  border-radius: 1.125rem;
   background:
     linear-gradient(115deg, rgba(34, 211, 238, 0.04), transparent 48%),
     rgba(7, 17, 29, 0.97);
   color: #e6f1ff;
-  box-shadow: 0 18px 60px rgba(0, 0, 0, 0.52);
-  -webkit-backdrop-filter: blur(18px);
-  backdrop-filter: blur(18px);
+  box-shadow: 0 1.125rem 3.75rem rgba(0, 0, 0, 0.52);
+  -webkit-backdrop-filter: blur(1.125rem);
+  backdrop-filter: blur(1.125rem);
 }
 
 .agent-chat-heading {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
-  padding: 14px 16px 12px;
-  border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+  gap: 1rem;
+  padding: 0.875rem 1rem 0.75rem;
+  border-bottom: 0.0625rem solid rgba(148, 163, 184, 0.12);
 }
 
 .agent-chat-heading-actions {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 0.625rem;
   min-width: 0;
 }
 
@@ -42,17 +42,17 @@
   margin: 0;
   color: #67e8f9;
   font-family: var(--font-jetbrains-mono), monospace;
-  font-size: 10px;
+  font-size: 0.625rem;
   letter-spacing: 0.13em;
 }
 
 .agent-chat-close {
   display: grid;
-  width: 32px;
-  height: 32px;
-  flex: 0 0 32px;
+  width: 2rem;
+  height: 2rem;
+  flex: 0 0 2rem;
   place-items: center;
-  border: 1px solid rgba(148, 163, 184, 0.16);
+  border: 0.0625rem solid rgba(148, 163, 184, 0.16);
   border-radius: 50%;
   background: rgba(148, 163, 184, 0.08);
   color: #a9bdd1;
@@ -60,8 +60,8 @@
 }
 
 .agent-chat-close svg {
-  width: 17px;
-  height: 17px;
+  width: 1.0625rem;
+  height: 1.0625rem;
   stroke: currentColor;
   stroke-width: 1.8;
   stroke-linecap: round;
@@ -77,16 +77,16 @@
   min-height: 0;
   flex: 1;
   flex-direction: column;
-  gap: 14px;
+  gap: 0.875rem;
   overflow-y: auto;
-  padding: 16px;
+  padding: 1rem;
   overscroll-behavior: contain;
   scrollbar-color: rgba(103, 232, 249, 0.38) transparent;
   scrollbar-width: thin;
 }
 
 .agent-chat-transcript::-webkit-scrollbar {
-  width: 6px;
+  width: 0.375rem;
 }
 
 .agent-chat-transcript::-webkit-scrollbar-track {
@@ -94,8 +94,8 @@
 }
 
 .agent-chat-transcript::-webkit-scrollbar-thumb {
-  border: 1px solid transparent;
-  border-radius: 999px;
+  border: 0.0625rem solid transparent;
+  border-radius: 99rem;
   background: rgba(148, 163, 184, 0.32);
   background-clip: padding-box;
 }
@@ -108,13 +108,13 @@
 .agent-chat-empty {
   margin: auto;
   color: #8295aa;
-  font-size: 13px;
+  font-size: 0.8125rem;
   text-align: center;
 }
 
 .agent-chat-message {
-  max-width: min(88%, 820px);
-  padding: 11px 14px 11px 0;
+  max-width: min(88%, 51.25rem);
+  padding: 0.6875rem 0.875rem 0.6875rem 0;
   border: 0;
   border-radius: 0;
   background: transparent;
@@ -122,23 +122,23 @@
 
 .agent-chat-message.is-user {
   align-self: flex-end;
-  padding: 11px 0 11px 14px;
+  padding: 0.6875rem 0 0.6875rem 0.875rem;
   text-align: right;
 }
 
 .agent-chat-message > p {
   margin: 0;
   color: #dce8f5;
-  font-size: 13px;
+  font-size: 0.8125rem;
   line-height: 1.65;
   overflow-wrap: anywhere;
   white-space: pre-wrap;
 }
 
 .agent-chat-error {
-  margin: 0 22px 12px;
+  margin: 0 1.375rem 0.75rem;
   color: #fca5a5;
-  font-size: 12px;
+  font-size: 0.75rem;
 }
 
 .agent-chat-error a {
@@ -146,26 +146,27 @@
 }
 
 .agent-chat-form {
-  padding: 12px 16px 14px;
-  border-top: 1px solid rgba(148, 163, 184, 0.12);
+  padding: 0.75rem 1rem 0.875rem;
+  border-top: 0.0625rem solid rgba(148, 163, 184, 0.12);
 }
 
 .agent-chat-launcher {
   display: flex;
-  min-height: 54px;
+  min-height: 2.875rem;
   align-items: center;
-  gap: 11px;
-  padding: 0 17px;
-  border: 1px solid rgba(34, 211, 238, 0.38);
-  border-radius: 999px;
+  gap: 0.625rem;
+  padding: 0 1.0625rem;
+  border: 0.0625rem solid rgba(34, 211, 238, 0.38);
+  border-radius: 99rem;
   background:
     linear-gradient(120deg, rgba(8, 145, 178, 0.28), rgba(7, 17, 29, 0.96));
   color: #d9faff;
-  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.42), 0 0 24px rgba(34, 211, 238, 0.1);
-  -webkit-backdrop-filter: blur(14px);
-  backdrop-filter: blur(14px);
-  font: 500 12px var(--font-inter), sans-serif;
+  box-shadow: 0 0.75rem 2.25rem rgba(0, 0, 0, 0.42), 0 0 1.5rem rgba(34, 211, 238, 0.1);
+  -webkit-backdrop-filter: blur(0.875rem);
+  backdrop-filter: blur(0.875rem);
+  font: 500 0.78125rem var(--font-inter), sans-serif;
   cursor: pointer;
+  white-space: nowrap;
   transition:
     border-color 160ms ease,
     transform 160ms ease,
@@ -173,14 +174,14 @@
 }
 
 .agent-chat-launcher:hover {
-  transform: translateY(-2px);
+  transform: translateY(-0.125rem);
   border-color: rgba(103, 232, 249, 0.7);
-  box-shadow: 0 16px 42px rgba(0, 0, 0, 0.48), 0 0 28px rgba(34, 211, 238, 0.17);
+  box-shadow: 0 1rem 2.625rem rgba(0, 0, 0, 0.48), 0 0 1.75rem rgba(34, 211, 238, 0.2);
 }
 
 .agent-chat-launcher svg {
-  width: 21px;
-  height: 21px;
+  width: 1.3125rem;
+  height: 1.3125rem;
   flex: 0 0 auto;
   stroke: #67e8f9;
   stroke-width: 1.6;
@@ -189,23 +190,23 @@
 }
 
 .agent-chat-launcher-status {
-  width: 7px;
-  height: 7px;
+  width: 0.4375rem;
+  height: 0.4375rem;
   flex: 0 0 auto;
-  margin-left: 2px;
+  margin-left: 0.125rem;
   border-radius: 50%;
   background: #718096;
 }
 
 .agent-chat-launcher-status.is-ready {
   background: #34d399;
-  box-shadow: 0 0 10px rgba(52, 211, 153, 0.7);
+  box-shadow: 0 0 0.625rem rgba(52, 211, 153, 0.7);
 }
 
 .agent-chat-input-label {
   position: absolute;
-  width: 1px;
-  height: 1px;
+  width: 0.0625rem;
+  height: 0.0625rem;
   overflow: hidden;
   clip: rect(0, 0, 0, 0);
   white-space: nowrap;
@@ -214,16 +215,16 @@
 .agent-chat-form textarea {
   display: block;
   width: 100%;
-  min-height: 58px;
+  min-height: 3.625rem;
   resize: vertical;
-  padding: 11px 13px;
-  border: 1px solid rgba(148, 163, 184, 0.2);
-  border-radius: 10px;
+  padding: 0.6875rem 0.8125rem;
+  border: 0.0625rem solid rgba(148, 163, 184, 0.2);
+  border-radius: 0.625rem;
   outline: none;
   background: rgba(3, 10, 18, 0.72);
   color: #e6f1ff;
   font: inherit;
-  font-size: 13px;
+  font-size: 0.8125rem;
   line-height: 1.5;
 }
 
@@ -233,7 +234,7 @@
 
 .agent-chat-form textarea:focus {
   border-color: rgba(34, 211, 238, 0.65);
-  box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.08);
+  box-shadow: 0 0 0 0.1875rem rgba(34, 211, 238, 0.08);
 }
 
 .agent-chat-form textarea:disabled {
@@ -244,24 +245,24 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  margin-top: 10px;
+  gap: 0.75rem;
+  margin-top: 0.625rem;
 }
 
 .agent-chat-form-footer > span {
   color: #72869b;
-  font-size: 10px;
+  font-size: 0.625rem;
 }
 
 .agent-chat-form button {
-  min-width: 88px;
-  padding: 8px 14px;
-  border: 1px solid rgba(34, 211, 238, 0.35);
-  border-radius: 8px;
+  min-width: 5.5rem;
+  padding: 0.5rem 0.875rem;
+  border: 0.0625rem solid rgba(34, 211, 238, 0.35);
+  border-radius: 0.5rem;
   background: rgba(8, 145, 178, 0.15);
   color: #a5f3fc;
   font: inherit;
-  font-size: 12px;
+  font-size: 0.75rem;
   cursor: pointer;
 }
 
@@ -275,28 +276,28 @@
 }
 
 .agent-chat-form button:focus-visible {
-  outline: 2px solid #67e8f9;
-  outline-offset: 3px;
+  outline: 0.125rem solid #67e8f9;
+  outline-offset: 0.1875rem;
 }
 
-@media (max-width: 640px) {
+@media (max-width: 40rem) {
   .agent-chat-widget {
-    right: 12px;
-    bottom: 12px;
+    right: 0.75rem;
+    bottom: 0.75rem;
   }
 
   .agent-chat {
-    width: min(400px, calc(100vw - 24px));
-    height: min(560px, calc(100dvh - 88px));
+    width: min(25rem, calc(100vw - 1.5rem));
+    height: min(35rem, calc(100dvh - 5.5rem));
   }
 
   .agent-chat-heading,
   .agent-chat-form {
-    padding-inline: 14px;
+    padding-inline: 0.875rem;
   }
 
   .agent-chat-error {
-    margin-inline: 14px;
+    margin-inline: 0.875rem;
   }
 
   .agent-chat-message {
@@ -304,7 +305,7 @@
   }
 
   .agent-chat-model {
-    max-width: min(42vw, 175px);
+    max-width: min(42vw, 10.9375rem);
   }
 
   .agent-chat-form-footer > span {

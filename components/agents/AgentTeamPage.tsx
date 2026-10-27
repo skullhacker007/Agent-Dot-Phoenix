@@ -25,6 +25,7 @@ import {
 } from "@/lib/agent-model-preferences";
 import AgentChat from "./AgentChat";
 import AgentModelSettings from "./AgentModelSettings";
+import VisionMarketDataPanel from "./VisionMarketDataPanel";
 import "./AgentTeamPage.css";
 
 const modelRequests = new Map<TeamId, Promise<AgentModelsResponse>>();
@@ -541,6 +542,8 @@ export default function AgentTeamPage({
           )}
         </section>
       )}
+
+      {teamId === "VISION" && view === "dashboard" && <VisionMarketDataPanel />}
 
     </main>
   );
