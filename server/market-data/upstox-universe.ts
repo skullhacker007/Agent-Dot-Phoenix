@@ -259,7 +259,9 @@ function labelFor(row: MasterRow, fallback: string): string {
 function isEquityRow(row: MasterRow): boolean {
   const segment = row.segment?.trim().toUpperCase();
   const type = row.instrument_type?.trim().toUpperCase();
-  if (segment === "NSE_EQ" && (type === "EQ" || !type)) return true;
+  const key = row.instrument_key?.trim();
+  if (key?.startsWith("NSE_EQ|")) return true;
+  if (segment === "NSE_EQ" && (type === "EQ" || type === "EQUITY" || !type)) return true;
   return false;
 }
 

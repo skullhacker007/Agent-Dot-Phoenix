@@ -43,12 +43,17 @@ export type IndianLimits = {
  * Scales dynamically up to Upstox's max batch limit of 500.
  */
 export function resolveIndianLimits(): IndianLimits {
-  const limit = resolveUniverseLimit(100);
-  const equities = Math.min(50, Math.max(15, Math.ceil(limit * 0.55)));
-  const indices = Math.min(10, Math.max(6, Math.ceil(limit * 0.12)));
-  const futures = Math.min(8, Math.max(6, Math.ceil(limit * 0.11)));
-  const options = Math.min(8, Math.max(6, Math.ceil(limit * 0.11)));
-  const commodities = Math.min(6, Math.max(6, Math.ceil(limit * 0.11)));
+  const limit = resolveUniverseLimit(50);
+  const rawEquityLimit = process.env.MARKET_DATA_INDIAN_EQUITY_LIMIT?.trim();
+  const parsedEquityLimit = rawEquityLimit ? Number(rawEquityLimit) : null;
+  const equities =
+    parsedEquityLimit && Number.isInteger(parsedEquityLimit) && parsedEquityLimit > 0
+      ? Math.min(parsedEquityLimit, 500)
+      : Math.min(500, Math.max(15, limit));
+  const indices = 10;
+  const futures = 8;
+  const options = 8;
+  const commodities = 6;
   return { equities, indices, futures, options, commodities };
 }
 

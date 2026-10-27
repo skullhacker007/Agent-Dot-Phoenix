@@ -37,6 +37,7 @@ import {
   fetchGlobalEquities,
   isGlobalEquitiesConfigured,
 } from "./pipelines/global-equities";
+import { resolveIndianLimits } from "./instruments";
 import type { PipelineStatus } from "./types";
 
 type PipelineOverrides = Partial<PipelineDefinition>;
@@ -479,5 +480,28 @@ describe("pipeline independence", () => {
     expect(points[0]?.delay).toBe("delayed");
     expect(points[0]?.quote.currency).toBeDefined();
     expect(PROVIDER_GLOBAL).toBe("Yahoo Finance");
+  });
+});
+
+describe("Indian market universe allocation limits", () => {
+  it("defaults to 50 equities when unconfigured", () => {
+    delete process.env.MARKET_DATA_UNIVERSE_LIMIT;
+    delete process.env.MARKET_DATA_INDIAN_EQUITY_LIMIT;
+    const limits = resolveIndianLimits();
+    expect(limits.equities).toBe(50);
+    expect(limits.indices).toBe(10);
+  });
+
+  it("scales up to 500 equities when MARKET_DATA_UNIVERSE_LIMIT=500", () => {
+    vi.stubEnv("MARKET_DATA_UNIVERSE_LIMIT", "500");
+    const limits = resolveIndianLimits();
+    expect(limits.equities).toBe(500);
+    expect(limits.indices).toBe(10);
+  });
+
+  it("honors MARKET_DATA_INDIAN_EQUITY_LIMIT override up to 500", () => {
+    vi.stubEnv("MARKET_DATA_INDIAN_EQUITY_LIMIT", "500");
+    const limits = resolveIndianLimits();
+    expect(limits.equities).toBe(500);
   });
 });
