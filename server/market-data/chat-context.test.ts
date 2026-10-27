@@ -64,6 +64,13 @@ describe("buildVisionMarketContext", () => {
     expect(context).toContain("Reliance Industries");
     expect(context).toContain("Nifty 50");
     expect(context).toContain("best stock price to buy?");
+    expect(context).toContain("within 5–8 lines");
+    expect(context).toContain("Separate top gainers from best buy candidates");
+    expect(context).toContain("Rank the top 3 stocks");
+    expect(context).toContain("Always include profit data");
+    expect(context).toContain("For counts, return the number directly");
+    expect(context).toContain("If indicators or technical data");
+    expect(context).not.toContain("not personalized financial advice");
   });
 
   it("handles empty or null context gracefully", () => {

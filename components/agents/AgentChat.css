@@ -1,3 +1,5 @@
+@import url("https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,100..900;1,100..900&display=swap");
+
 .agent-chat-widget {
   position: fixed;
   right: 1.5rem;
@@ -20,6 +22,7 @@
   box-shadow: 0 1.125rem 3.75rem rgba(0, 0, 0, 0.52);
   -webkit-backdrop-filter: blur(1.125rem);
   backdrop-filter: blur(1.125rem);
+  font-family: var(--font-roboto), "Roboto", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
 .agent-chat-heading {
@@ -108,31 +111,73 @@
 .agent-chat-empty {
   margin: auto;
   color: #8295aa;
+  font-family: var(--font-roboto), "Roboto", sans-serif;
   font-size: 0.8125rem;
+  font-weight: 400;
   text-align: center;
 }
 
 .agent-chat-message {
-  max-width: min(88%, 51.25rem);
-  padding: 0.6875rem 0.875rem 0.6875rem 0;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
+  max-width: min(90%, 51.25rem);
+  padding: 0.625rem 0.8125rem;
+  border-radius: 0.625rem;
+  font-family: var(--font-roboto), "Roboto", sans-serif;
 }
 
 .agent-chat-message.is-user {
   align-self: flex-end;
-  padding: 0.6875rem 0 0.6875rem 0.875rem;
-  text-align: right;
+  background: rgba(8, 145, 178, 0.18);
+  border: 0.0625rem solid rgba(34, 211, 238, 0.28);
+  border-radius: 0.75rem 0.75rem 0.125rem 0.75rem;
+  color: #e0f2fe;
+  text-align: left;
 }
 
-.agent-chat-message > p {
+.agent-chat-message.is-assistant {
+  align-self: flex-start;
+  background: rgba(13, 22, 38, 0.75);
+  border: 0.0625rem solid rgba(148, 163, 184, 0.16);
+  border-radius: 0.75rem 0.75rem 0.75rem 0.125rem;
+  color: #f1f5f9;
+  box-shadow: 0 0.1875rem 0.75rem rgba(0, 0, 0, 0.22);
+}
+
+.agent-chat-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.28125rem;
+}
+
+.agent-chat-line {
   margin: 0;
-  color: #dce8f5;
-  font-size: 0.8125rem;
-  line-height: 1.65;
+  color: inherit;
+  font-family: var(--font-roboto), "Roboto", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 0.84375rem;
+  font-weight: 400;
+  line-height: 1.55;
+  letter-spacing: 0.01em;
   overflow-wrap: anywhere;
-  white-space: pre-wrap;
+}
+
+.agent-chat-line.is-bullet {
+  padding-left: 0.4375rem;
+  border-left: 0.125rem solid rgba(56, 189, 248, 0.45);
+}
+
+.agent-chat-strong {
+  font-weight: 600;
+  color: #67e8f9;
+}
+
+.agent-chat-spacer {
+  display: block;
+  height: 0.25rem;
+}
+
+.agent-chat-thinking {
+  color: #94a3b8;
+  font-style: italic;
+  font-size: 0.8125rem;
 }
 
 .agent-chat-error {
@@ -164,7 +209,7 @@
   box-shadow: 0 0.75rem 2.25rem rgba(0, 0, 0, 0.42), 0 0 1.5rem rgba(34, 211, 238, 0.1);
   -webkit-backdrop-filter: blur(0.875rem);
   backdrop-filter: blur(0.875rem);
-  font: 500 0.78125rem var(--font-inter), sans-serif;
+  font: 500 0.78125rem var(--font-roboto), var(--font-inter), sans-serif;
   cursor: pointer;
   white-space: nowrap;
   transition:
@@ -223,8 +268,9 @@
   outline: none;
   background: rgba(3, 10, 18, 0.72);
   color: #e6f1ff;
-  font: inherit;
-  font-size: 0.8125rem;
+  font-family: var(--font-roboto), "Roboto", sans-serif;
+  font-size: 0.84375rem;
+  font-weight: 400;
   line-height: 1.5;
 }
 
@@ -261,8 +307,9 @@
   border-radius: 0.5rem;
   background: rgba(8, 145, 178, 0.15);
   color: #a5f3fc;
-  font: inherit;
-  font-size: 0.75rem;
+  font-family: var(--font-roboto), "Roboto", sans-serif;
+  font-size: 0.8125rem;
+  font-weight: 500;
   cursor: pointer;
 }
 

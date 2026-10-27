@@ -12,11 +12,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   pipelineErrorResponseSchema,
   pipelineFetchResponseSchema,
-} from "@/server/market-data/types";
+} from "../../server/market-data/types";
 import type {
   MarketDataPoint,
   PipelineSnapshot,
-} from "@/server/market-data/types";
+} from "../../server/market-data/types";
 import "./VisionMarketDataPanel.css";
 
 const PIPELINE_ID = "indian-equities";
@@ -54,6 +54,69 @@ export type FilterType =
   | "commodities"
   | "gainers"
   | "losers";
+
+export type SortField = "price" | "change";
+export type SortDirection = "desc" | "asc";
+
+export type SortConfig = {
+  field: SortField;
+  direction: SortDirection;
+} | null;
+
+function SortIndicator({ direction }: { direction?: SortDirection | null }) {
+  if (direction === "desc") {
+    return (
+      <svg
+        className="vision-sort-arrow is-active is-desc"
+        width="14"
+        height="14"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+      >
+        <path d="M12 5v14M19 12l-7 7-7-7" />
+      </svg>
+    );
+  }
+  if (direction === "asc") {
+    return (
+      <svg
+        className="vision-sort-arrow is-active is-asc"
+        width="14"
+        height="14"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+      >
+        <path d="M12 19V5M5 12l7-7 7 7" />
+      </svg>
+    );
+  }
+  return (
+    <svg
+      className="vision-sort-arrow is-inactive"
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M7 15l5 5 5-5M7 9l5-5 5 5" />
+    </svg>
+  );
+}
 
 export type VisionMarketContext = {
   activeFilter: FilterType;
@@ -109,6 +172,7 @@ export default function VisionMarketDataPanel({
   );
   const [pageSize, setPageSize] = useState<number>(15);
   const [currentPage, setCurrentPage] = useState<number>(1);
+  const [sortConfig, setSortConfig] = useState<SortConfig>(null);
 
   const controllerRef = useRef<AbortController | null>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -398,17 +462,72 @@ export default function VisionMarketDataPanel({
     setCurrentPage(1);
   };
 
-  const totalItems = filteredPoints.length;
+  const handleSort = (field: SortField) => {
+    setSortConfig((current) => {
+      if (!current || current.field !== field) {
+        return { field, direction: "desc" };
+      }
+      if (current.direction === "desc") {
+        return { field, direction: "asc" };
+      }
+      return null;
+    });
+    setCurrentPage(1);
+  };
+
+  const sortedPoints = useMemo(() => {
+    if (!sortConfig) return filteredPoints;
+
+    const { field, direction } = sortConfig;
+
+    return [...filteredPoints].sort((a, b) => {
+      let valA: number | null = null;
+      let valB: number | null = null;
+
+      if (field === "price") {
+        valA =
+          typeof a.quote.value === "number" && !Number.isNaN(a.quote.value)
+            ? a.quote.value
+            : null;
+        valB =
+          typeof b.quote.value === "number" && !Number.isNaN(b.quote.value)
+            ? b.quote.value
+            : null;
+      } else {
+        valA =
+          typeof a.quote.changePercent === "number" &&
+          !Number.isNaN(a.quote.changePercent)
+            ? a.quote.changePercent
+            : null;
+        valB =
+          typeof b.quote.changePercent === "number" &&
+          !Number.isNaN(b.quote.changePercent)
+            ? b.quote.changePercent
+            : null;
+      }
+
+      if (valA === null && valB === null) return 0;
+      if (valA === null) return 1;
+      if (valB === null) return -1;
+
+      const diff = direction === "desc" ? valB - valA : valA - valB;
+      if (diff !== 0) return diff;
+
+      return a.quote.symbol.localeCompare(b.quote.symbol);
+    });
+  }, [filteredPoints, sortConfig]);
+
+  const totalItems = sortedPoints.length;
   const isAll = pageSize <= 0;
   const effectivePageSize = isAll ? Math.max(1, totalItems) : pageSize;
   const totalPages = Math.max(1, Math.ceil(totalItems / effectivePageSize));
   const safePage = Math.min(currentPage, totalPages);
 
   const paginatedPoints = useMemo(() => {
-    if (isAll) return filteredPoints;
+    if (isAll) return sortedPoints;
     const start = (safePage - 1) * effectivePageSize;
-    return filteredPoints.slice(start, start + effectivePageSize);
-  }, [filteredPoints, safePage, effectivePageSize, isAll]);
+    return sortedPoints.slice(start, start + effectivePageSize);
+  }, [sortedPoints, safePage, effectivePageSize, isAll]);
 
   const startRecord =
     totalItems === 0 ? 0 : (safePage - 1) * effectivePageSize + 1;
@@ -579,8 +698,8 @@ export default function VisionMarketDataPanel({
                   {formatPrice(analytics.topGainer.quote.value, "INR")}
                 </span>
                 <span className="vision-stat-card-sub text-success">
-                  ▲ +{(analytics.topGainer.quote.changePercent ?? 0).toFixed(2)}
-                  %
+                  Profit: +{formatPrice(analytics.topGainer.quote.change, "INR")} (+
+                  {(analytics.topGainer.quote.changePercent ?? 0).toFixed(2)}%)
                 </span>
               </div>
             </article>
@@ -606,7 +725,8 @@ export default function VisionMarketDataPanel({
                   {formatPrice(analytics.topLoser.quote.value, "INR")}
                 </span>
                 <span className="vision-stat-card-sub text-danger">
-                  ▼ {(analytics.topLoser.quote.changePercent ?? 0).toFixed(2)}%
+                  Loss: {formatPrice(analytics.topLoser.quote.change, "INR")} (
+                  {(analytics.topLoser.quote.changePercent ?? 0).toFixed(2)}%)
                 </span>
               </div>
             </article>
@@ -684,8 +804,72 @@ export default function VisionMarketDataPanel({
             <thead>
               <tr>
                 <th scope="col">Instrument</th>
-                <th scope="col">Last Price</th>
-                <th scope="col">Change</th>
+                <th
+                  scope="col"
+                  className={`vision-sortable-th ${sortConfig?.field === "price" ? "active" : ""}`}
+                  aria-sort={
+                    sortConfig?.field === "price"
+                      ? sortConfig.direction === "asc"
+                        ? "ascending"
+                        : "descending"
+                      : "none"
+                  }
+                >
+                  <button
+                    type="button"
+                    className="vision-th-sort-btn"
+                    onClick={() => handleSort("price")}
+                    title={`Sort by Last Price (${
+                      sortConfig?.field === "price"
+                        ? sortConfig.direction === "desc"
+                          ? "Sorted descending. Click to sort ascending."
+                          : "Sorted ascending. Click for default order."
+                        : "Click to sort descending."
+                    })`}
+                  >
+                    <span>Last Price</span>
+                    <SortIndicator
+                      direction={
+                        sortConfig?.field === "price"
+                          ? sortConfig.direction
+                          : null
+                      }
+                    />
+                  </button>
+                </th>
+                <th
+                  scope="col"
+                  className={`vision-sortable-th ${sortConfig?.field === "change" ? "active" : ""}`}
+                  aria-sort={
+                    sortConfig?.field === "change"
+                      ? sortConfig.direction === "asc"
+                        ? "ascending"
+                        : "descending"
+                      : "none"
+                  }
+                >
+                  <button
+                    type="button"
+                    className="vision-th-sort-btn"
+                    onClick={() => handleSort("change")}
+                    title={`Sort by Change (%) (${
+                      sortConfig?.field === "change"
+                        ? sortConfig.direction === "desc"
+                          ? "Sorted descending. Click to sort ascending."
+                          : "Sorted ascending. Click for default order."
+                        : "Click to sort descending."
+                    })`}
+                  >
+                    <span>Change (%)</span>
+                    <SortIndicator
+                      direction={
+                        sortConfig?.field === "change"
+                          ? sortConfig.direction
+                          : null
+                      }
+                    />
+                  </button>
+                </th>
                 <th scope="col">Day Range (L - H)</th>
                 <th scope="col">Open / Prev Close</th>
                 <th scope="col">Volume & VWAP</th>
@@ -1064,8 +1248,23 @@ export default function VisionMarketDataPanel({
               </div>
             ) : (
               <>
-                {/* Circuit Limits for Equities */}
+                {/* Circuit Limits & Profit Data for Equities */}
                 <div className="vision-circuits-row">
+                  <div className="vision-circuit-item">
+                    <dt>Day Profit / Loss</dt>
+                    <dd
+                      className={
+                        (activePoint.quote.change ?? 0) >= 0
+                          ? "text-success"
+                          : "text-danger"
+                      }
+                    >
+                      {(activePoint.quote.change ?? 0) >= 0 ? "▲ +" : "▼ "}
+                      {formatPrice(activePoint.quote.change, "INR")} (
+                      {(activePoint.quote.changePercent ?? 0) >= 0 ? "+" : ""}
+                      {(activePoint.quote.changePercent ?? 0).toFixed(2)}%)
+                    </dd>
+                  </div>
                   <div className="vision-circuit-item">
                     <dt>Lower Circuit</dt>
                     <dd className="text-danger">

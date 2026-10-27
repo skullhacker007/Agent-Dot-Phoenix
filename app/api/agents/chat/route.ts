@@ -96,8 +96,21 @@ const teamInstructions: Record<TeamId, string> = {
   ULTRON:
     "You are Ultron, a defensive cybersecurity solutions assistant. Focus on secure design, authorized defensive assessment, detection, incident response, and remediation. Do not provide instructions, code, or operational steps to compromise systems, evade detection, steal credentials, deploy malware, or access systems without authorization. Keep security guidance bounded to systems the user owns or is authorized to protect.",
   VISION:
-    "You are Vision, an elite quantitative financial analytics assistant. You have full, direct real-time access to the active Indian financial markets dashboard (NSE equities, benchmark indices, derivatives futures & options, and MCX commodities) streamed via Upstox API v2. Provide clear, data-driven analysis with exact figures, counts, price levels, and market breadth insights. Your responses are informational and are not personalized financial advice.",
+    "You are Vision, an elite quantitative financial analytics assistant. You have full, direct real-time access to the active Indian financial markets dashboard (NSE equities, benchmark indices, derivatives futures & options, and MCX commodities) streamed via Upstox API v2. Provide clear, data-driven analysis with exact figures, counts, price levels, and market breadth insights.",
 };
+
+const RESPONSE_CONCISENESS_RULES = `
+### RESPONSE CONCISENESS & FORMATTING RULES:
+- Keep answers short, clear, and focused on the user's exact question. Keep default answers within 5–8 lines.
+- Separate top gainers from best buy candidates: top daily gainers are not automatically the best buy candidates.
+- When asked for best stocks, buy candidates, or stock/option analysis:
+  * Rank the top 3 stocks directly using available price, volume, momentum, trend, and risk data.
+  * Always include profit data (projected target price & profit % potential) alongside CMP, daily change, key reason, and risk in one line per stock (e.g. "1. **SYMBOL**: CMP ₹X (+Y%) | Target/Profit: ₹Z (+P% upside) | Reason: [volume/momentum/trend] | Risk: [support/stop loss]").
+- For counts, return the number directly without preamble.
+- If indicators or data are missing (such as RSI, moving averages, or order depth), say so explicitly rather than inventing them. Never invent values or hallucinate indicators.
+- Do not repeat the user's question and do not provide generic disclaimers or subjective hedging (e.g. never say "*Note: Direct 'best buy' is subjective; review...").
+- Give a longer explanation only when the user asks for detailed analysis; otherwise keep it simple.
+`.trim();
 
 async function readBoundedBody(request: Request) {
   const reader = request.body?.getReader();
@@ -216,7 +229,7 @@ export async function POST(request: Request) {
 
   let completion: Stream<ChatCompletionChunk>;
   try {
-    let systemInstruction = teamInstructions[parsed.data.teamId];
+    let systemInstruction = `${teamInstructions[parsed.data.teamId]}\n\n${RESPONSE_CONCISENESS_RULES}`;
 
     if (parsed.data.teamId === "VISION") {
       let serverSnapshot = null;

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { FormEvent } from "react";
+import type { FormEvent, ReactNode } from "react";
 import { setAgentActivity } from "@/lib/agent-activity";
 import type { TeamId } from "@/lib/agent-monitoring";
 import "./AgentChat.css";
@@ -35,6 +35,61 @@ function getErrorMessage(payload: unknown, teamName: string) {
 
 function estimateTokens(text: string) {
   return text ? Math.ceil(text.length / 4) : 0;
+}
+
+function renderMessageContent(content: string, isThinking = false) {
+  if (!content) {
+    return isThinking ? (
+      <span className="agent-chat-thinking">Thinking…</span>
+    ) : null;
+  }
+
+  const lines = content.split("\n");
+
+  return (
+    <div className="agent-chat-body">
+      {lines.map((line, lineIndex) => {
+        if (!line.trim()) {
+          return <span key={lineIndex} className="agent-chat-spacer" />;
+        }
+
+        const parts: ReactNode[] = [];
+        const regex = /\*\*(.*?)\*\*/g;
+        let lastIndex = 0;
+        let match: RegExpExecArray | null;
+
+        while ((match = regex.exec(line)) !== null) {
+          if (match.index > lastIndex) {
+            parts.push(line.substring(lastIndex, match.index));
+          }
+          parts.push(
+            <strong
+              key={`b-${lineIndex}-${match.index}`}
+              className="agent-chat-strong"
+            >
+              {match[1]}
+            </strong>,
+          );
+          lastIndex = regex.lastIndex;
+        }
+
+        if (lastIndex < line.length) {
+          parts.push(line.substring(lastIndex));
+        }
+
+        const isBullet = /^\s*([*•-]|(\d+\.))\s+/.test(line);
+
+        return (
+          <p
+            key={lineIndex}
+            className={`agent-chat-line ${isBullet ? "is-bullet" : ""}`}
+          >
+            {parts.length > 0 ? parts : line}
+          </p>
+        );
+      })}
+    </div>
+  );
 }
 
 export default function AgentChat({
@@ -303,10 +358,10 @@ export default function AgentChat({
                   className={`agent-chat-message is-${message.role}`}
                   key={message.id}
                 >
-                  <p>
-                    {message.content ||
-                      (busy && message.role === "assistant" ? "Thinking…" : "")}
-                  </p>
+                  {renderMessageContent(
+                    message.content,
+                    busy && message.role === "assistant",
+                  )}
                 </article>
               ))
             )}

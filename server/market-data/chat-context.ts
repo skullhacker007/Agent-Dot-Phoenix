@@ -13,6 +13,25 @@ export type CompactMarketPoint = {
   open?: number | null;
 };
 
+type MarketPointSummary = {
+  label?: string;
+  symbol?: string;
+  instrument?: string;
+  value?: number | null;
+  change?: number | null;
+  changePercent?: number | null;
+  quote?: {
+    symbol?: string;
+    value?: number | null;
+    change?: number | null;
+    changePercent?: number | null;
+    volume?: number | null;
+    high?: number | null;
+    low?: number | null;
+    averagePrice?: number | null;
+  };
+};
+
 export type VisionChatMarketContext = {
   activeFilter?: string;
   categoryCounts?: {
@@ -28,12 +47,12 @@ export type VisionChatMarketContext = {
     declineCount?: number;
     unchangedCount?: number;
     advancePercent?: number;
-    topGainer?: any;
-    topLoser?: any;
-    volumeLeader?: any;
-    nifty50?: any;
+    topGainer?: MarketPointSummary | null;
+    topLoser?: MarketPointSummary | null;
+    volumeLeader?: MarketPointSummary | null;
+    nifty50?: MarketPointSummary | null;
   } | null;
-  selectedPoint?: any;
+  selectedPoint?: MarketPointSummary | null;
   compactPoints?: CompactMarketPoint[];
 };
 
@@ -78,6 +97,7 @@ type NormalizedPoint = {
   high: number | null;
   low: number | null;
   open: number | null;
+  quote?: MarketPointSummary["quote"];
   rawPoint?: MarketDataPoint;
 };
 
@@ -330,17 +350,26 @@ export function buildVisionMarketContext(
   // Instructions for the AI Agent
   lines.push("\n### AGENT INSTRUCTIONS FOR USER QUERIES:");
   lines.push(
-    "1. **Accurate Direct Answers**: Answer counts, listings, and price inquiries directly from the live data above. For example, if asked 'how many in commodities list now?' or 'how many stocks in options?', give the exact number (" + counts.commodities + " commodities, " + counts.options + " options) and detail the instruments.",
+    "1. **Brevity & Output Length**: Keep answers short, clear, and focused on the user's exact question. Keep default answers strictly within 5–8 lines. Do not repeat the user's question. Do not provide generic disclaimers or subjective hedging (never say 'Direct best buy is subjective; review...'). Give a longer explanation only when the user explicitly asks for detailed analysis; otherwise keep it simple.",
   );
   lines.push(
-    "2. **Stock Recommendations & Trade Analysis**: When asked 'best stock price to buy?', 'what stock to buy?', or entry levels:\n" +
-      "   - Analyze the current live data: identify 2-3 standout stocks from the gainers / momentum list (e.g. positive change, outperforming Nifty 50, healthy volume) or strong dips near day's low/support with attractive risk-to-reward.\n" +
-      "   - Quote the EXACT stock symbol, company name, Current Market Price (CMP), suggested entry range, support / stop-loss reference level (e.g. day's Low), and target resistance.\n" +
-      "   - Factor in the current market breadth (" + advancePercent + "% advancing).\n" +
-      "   - Include a concise informational note that market prices fluctuate and this is quantitative market analysis, not personalized financial advice.",
+    "2. **Direct Counts**: For counts, return the number directly without unnecessary preamble (e.g. if asked 'how many in commodities list now?' or 'how many stocks in options?', return the number directly: " +
+      counts.commodities +
+      " commodities, " +
+      counts.options +
+      " options).",
   );
   lines.push(
-    "3. **Never Disclaim Data Availability**: DO NOT say 'I don't have access to live data' or 'I can't see the list', because the full real-time data feed is provided right here.",
+    "3. **Stock & Option Best Buy Analysis (Top 3 Ranked)**: When asked 'best stock in nifty 50', 'best stock price to buy?', 'what stock to buy?', or for stock/option recommendations:\n" +
+      "   - Separate top gainers from best buy candidates. Daily % gainers may be overextended, so evaluate real trade setups.\n" +
+      "   - Rank the top 3 stocks using available price, volume, momentum, trend, and risk data from the live feed.\n" +
+      "   - Always include profit data (projected target price & profit % potential) alongside CMP, daily change, key reason, and risk in exactly one line per stock.\n" +
+      "   - Format:\n" +
+      "     1. **SYMBOL** (Company): CMP ₹X (+Y%) | Target/Profit: ₹Z (+P% upside) | Reason: [Volume surge / pullback to day low / relative strength] | Risk: [Support level / stop loss]\n" +
+      "   - If indicators or technical data (like RSI or moving averages) are missing from the feed, say so directly rather than inventing them. Use actual fetched market data; never invent values.",
+  );
+  lines.push(
+    "4. **Never Disclaim Data Availability**: DO NOT say 'I don't have access to live data' or 'I can't see the list', because the full real-time data feed is provided right here.",
   );
 
   return lines.join("\n");
