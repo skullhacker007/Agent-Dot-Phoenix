@@ -8,13 +8,15 @@ import {
   streamNvidiaCompletion,
 } from "@/lib/nvidia";
 import { TEAM_DEFINITIONS, type TeamId } from "@/lib/agent-monitoring";
+import { buildVisionMarketContext } from "@/server/market-data/chat-context";
+import { getPipeline } from "@/server/market-data/registry";
 import type {
   ChatCompletionChunk,
   ChatCompletionMessageParam,
 } from "openai/resources/chat/completions";
 import type { Stream } from "openai/streaming";
 
-const MAX_REQUEST_BYTES = 32 * 1024;
+const MAX_REQUEST_BYTES = 64 * 1024;
 
 const requestSchema = z
   .object({
@@ -29,6 +31,39 @@ const requestSchema = z
       )
       .min(1)
       .max(20),
+    marketContext: z
+      .object({
+        activeFilter: z.string().optional(),
+        categoryCounts: z
+          .object({
+            stocks: z.number().optional(),
+            indices: z.number().optional(),
+            futures: z.number().optional(),
+            options: z.number().optional(),
+            commodities: z.number().optional(),
+            total: z.number().optional(),
+          })
+          .optional(),
+        analytics: z.any().optional(),
+        selectedPoint: z.any().optional(),
+        compactPoints: z
+          .array(
+            z.object({
+              symbol: z.string().optional(),
+              label: z.string().optional(),
+              group: z.string().optional(),
+              value: z.number().nullable().optional(),
+              change: z.number().nullable().optional(),
+              changePercent: z.number().nullable().optional(),
+              volume: z.number().nullable().optional(),
+              high: z.number().nullable().optional(),
+              low: z.number().nullable().optional(),
+              open: z.number().nullable().optional(),
+            }),
+          )
+          .optional(),
+      })
+      .nullish(),
   })
   .superRefine(({ messages }, context) => {
     messages.forEach((message, index) => {
@@ -61,7 +96,7 @@ const teamInstructions: Record<TeamId, string> = {
   ULTRON:
     "You are Ultron, a defensive cybersecurity solutions assistant. Focus on secure design, authorized defensive assessment, detection, incident response, and remediation. Do not provide instructions, code, or operational steps to compromise systems, evade detection, steal credentials, deploy malware, or access systems without authorization. Keep security guidance bounded to systems the user owns or is authorized to protect.",
   VISION:
-    "You are Vision, a financial analytics assistant. Provide clear, structured analysis, state assumptions, distinguish facts from estimates, and never claim access to live financial data unless it is included in the conversation. Your responses are informational and are not personalized financial advice.",
+    "You are Vision, an elite quantitative financial analytics assistant. You have full, direct real-time access to the active Indian financial markets dashboard (NSE equities, benchmark indices, derivatives futures & options, and MCX commodities) streamed via Upstox API v2. Provide clear, data-driven analysis with exact figures, counts, price levels, and market breadth insights. Your responses are informational and are not personalized financial advice.",
 };
 
 async function readBoundedBody(request: Request) {
@@ -181,8 +216,31 @@ export async function POST(request: Request) {
 
   let completion: Stream<ChatCompletionChunk>;
   try {
+    let systemInstruction = teamInstructions[parsed.data.teamId];
+
+    if (parsed.data.teamId === "VISION") {
+      let serverSnapshot = null;
+      const pipeline = getPipeline("indian-equities");
+      if (pipeline) {
+        serverSnapshot = pipeline.getSnapshot();
+        if (!serverSnapshot || serverSnapshot.dataPoints.length === 0) {
+          try {
+            await pipeline.getData({ signal: request.signal });
+            serverSnapshot = pipeline.getSnapshot();
+          } catch {
+            // Gracefully proceed with client context
+          }
+        }
+      }
+      const marketContextString = buildVisionMarketContext(
+        parsed.data.marketContext,
+        serverSnapshot,
+      );
+      systemInstruction = `${systemInstruction}\n\n${marketContextString}`;
+    }
+
     const messages: ChatCompletionMessageParam[] = [
-      { role: "system", content: teamInstructions[parsed.data.teamId] },
+      { role: "system", content: systemInstruction },
       ...parsed.data.messages,
     ];
     completion = await streamNvidiaCompletion(

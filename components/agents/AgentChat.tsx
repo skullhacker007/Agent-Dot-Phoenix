@@ -18,6 +18,7 @@ type AgentChatProps = {
   teamRole: string;
   assignedModel: string | null;
   loading: boolean;
+  marketContext?: unknown;
 };
 
 function getErrorMessage(payload: unknown, teamName: string) {
@@ -42,6 +43,7 @@ export default function AgentChat({
   teamRole,
   assignedModel,
   loading: modelsLoading,
+  marketContext,
 }: AgentChatProps) {
   const assignedModelAvailable = assignedModel !== null;
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -140,6 +142,7 @@ export default function AgentChat({
           teamId,
           messages: recentConversation,
           modelId: assignedModel,
+          ...(teamId === "VISION" && marketContext ? { marketContext } : {}),
         }),
         signal: controller.signal,
       });

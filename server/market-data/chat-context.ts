@@ -1,0 +1,347 @@
+import type { MarketDataPoint, PipelineSnapshot } from "./types";
+
+export type CompactMarketPoint = {
+  symbol?: string;
+  label?: string;
+  group?: string;
+  value?: number | null;
+  change?: number | null;
+  changePercent?: number | null;
+  volume?: number | null;
+  high?: number | null;
+  low?: number | null;
+  open?: number | null;
+};
+
+export type VisionChatMarketContext = {
+  activeFilter?: string;
+  categoryCounts?: {
+    stocks?: number;
+    indices?: number;
+    futures?: number;
+    options?: number;
+    commodities?: number;
+    total?: number;
+  };
+  analytics?: {
+    advanceCount?: number;
+    declineCount?: number;
+    unchangedCount?: number;
+    advancePercent?: number;
+    topGainer?: any;
+    topLoser?: any;
+    volumeLeader?: any;
+    nifty50?: any;
+  } | null;
+  selectedPoint?: any;
+  compactPoints?: CompactMarketPoint[];
+};
+
+function formatPrice(val: number | null | undefined): string {
+  if (val === null || val === undefined) return "—";
+  const maximumFractionDigits = Math.abs(val) >= 1000 ? 2 : 4;
+  return `₹${val.toLocaleString("en-IN", {
+    maximumFractionDigits,
+    minimumFractionDigits: 2,
+  })}`;
+}
+
+function formatChange(
+  change: number | null | undefined,
+  pct: number | null | undefined,
+): string {
+  if (pct === null || pct === undefined) return "—";
+  const sign = pct > 0 ? "+" : "";
+  const changeText =
+    change !== null && change !== undefined
+      ? ` (${change > 0 ? "+" : ""}${change.toFixed(2)})`
+      : "";
+  return `${sign}${pct.toFixed(2)}%${changeText}`;
+}
+
+function formatVolume(val: number | null | undefined): string {
+  if (val === null || val === undefined) return "—";
+  if (val >= 10_000_000) return `${(val / 10_000_000).toFixed(2)} Cr`;
+  if (val >= 100_000) return `${(val / 100_000).toFixed(2)} L`;
+  if (val >= 1_000) return `${(val / 1_000).toFixed(1)}k`;
+  return val.toLocaleString("en-IN");
+}
+
+type NormalizedPoint = {
+  symbol: string;
+  label: string;
+  group: string;
+  value: number | null;
+  change: number | null;
+  changePercent: number | null;
+  volume: number | null;
+  high: number | null;
+  low: number | null;
+  open: number | null;
+  rawPoint?: MarketDataPoint;
+};
+
+function normalizePoints(
+  clientPoints?: CompactMarketPoint[],
+  serverSnapshot?: PipelineSnapshot | null,
+): NormalizedPoint[] {
+  const map = new Map<string, NormalizedPoint>();
+
+  // Ingest server points first (richer data)
+  if (serverSnapshot?.dataPoints) {
+    for (const p of serverSnapshot.dataPoints) {
+      const sym = p.quote.symbol || p.label || p.instrument;
+      map.set(sym.toUpperCase(), {
+        symbol: p.quote.symbol,
+        label: p.label,
+        group: p.group,
+        value: p.quote.value,
+        change: p.quote.change,
+        changePercent: p.quote.changePercent,
+        volume: p.quote.volume ?? null,
+        high: p.quote.high ?? null,
+        low: p.quote.low ?? null,
+        open: p.quote.open ?? null,
+        rawPoint: p,
+      });
+    }
+  }
+
+  // Overlay client points
+  if (clientPoints) {
+    for (const p of clientPoints) {
+      const sym = p.symbol || p.label || "";
+      if (!sym) continue;
+      const key = sym.toUpperCase();
+      const existing = map.get(key);
+      map.set(key, {
+        symbol: p.symbol || existing?.symbol || sym,
+        label: p.label || existing?.label || sym,
+        group: p.group || existing?.group || "Equities",
+        value: p.value !== undefined ? p.value : existing?.value ?? null,
+        change: p.change !== undefined ? p.change : existing?.change ?? null,
+        changePercent:
+          p.changePercent !== undefined
+            ? p.changePercent
+            : existing?.changePercent ?? null,
+        volume: p.volume !== undefined ? p.volume : existing?.volume ?? null,
+        high: p.high !== undefined ? p.high : existing?.high ?? null,
+        low: p.low !== undefined ? p.low : existing?.low ?? null,
+        open: p.open !== undefined ? p.open : existing?.open ?? null,
+        rawPoint: existing?.rawPoint,
+      });
+    }
+  }
+
+  return Array.from(map.values());
+}
+
+export function buildVisionMarketContext(
+  clientContext?: VisionChatMarketContext | null,
+  serverSnapshot?: PipelineSnapshot | null,
+): string {
+  const points = normalizePoints(
+    clientContext?.compactPoints,
+    serverSnapshot,
+  );
+
+  // Group into categories
+  const options: NormalizedPoint[] = [];
+  const commodities: NormalizedPoint[] = [];
+  const futures: NormalizedPoint[] = [];
+  const indices: NormalizedPoint[] = [];
+  const stocks: NormalizedPoint[] = [];
+
+  let advanceCount = 0;
+  let declineCount = 0;
+  let unchangedCount = 0;
+
+  for (const p of points) {
+    const g = p.group.toLowerCase();
+    const l = p.label.toLowerCase();
+    const s = p.symbol.toLowerCase();
+
+    if (g.includes("option") || l.includes("option") || l.includes(" ce") || l.includes(" pe") || s.includes(" ce") || s.includes(" pe")) {
+      options.push(p);
+    } else if (g.includes("commodit") || g.includes("mcx") || l.includes("gold") || l.includes("silver") || l.includes("crude") || l.includes("copper") || l.includes("gas")) {
+      commodities.push(p);
+    } else if (g.includes("future") || l.includes("future") || s.includes("fut")) {
+      futures.push(p);
+    } else if (g.includes("indic") || l.includes("nifty") || l.includes("sensex") || s.includes("nifty") || s.includes("bank")) {
+      indices.push(p);
+    } else {
+      stocks.push(p);
+    }
+
+    const cp = p.changePercent ?? 0;
+    if (cp > 0) advanceCount++;
+    else if (cp < 0) declineCount++;
+    else unchangedCount++;
+  }
+
+  // Counts resolution (prefer client reported if points are partial)
+  const counts = {
+    total: clientContext?.categoryCounts?.total ?? points.length,
+    stocks: clientContext?.categoryCounts?.stocks ?? stocks.length,
+    indices: clientContext?.categoryCounts?.indices ?? indices.length,
+    futures: clientContext?.categoryCounts?.futures ?? futures.length,
+    options: clientContext?.categoryCounts?.options ?? options.length,
+    commodities:
+      clientContext?.categoryCounts?.commodities ?? commodities.length,
+  };
+
+  const totalBreadth = advanceCount + declineCount + unchangedCount;
+  const advancePercent =
+    totalBreadth > 0 ? ((advanceCount / totalBreadth) * 100).toFixed(1) : "50.0";
+  const breadthSentiment =
+    advanceCount > declineCount * 1.3
+      ? "Bullish (Advances lead)"
+      : declineCount > advanceCount * 1.3
+        ? "Bearish / Heavy Selling (Declines dominate)"
+        : "Mixed / Rangebound";
+
+  // Find Nifty 50 benchmark
+  const nifty50 =
+    indices.find((i) => i.symbol.includes("Nifty 50") || i.label.includes("Nifty 50")) ||
+    clientContext?.analytics?.nifty50;
+
+  // Stock sorting
+  const sortedStocks = [...stocks].sort(
+    (a, b) => (b.changePercent ?? -Infinity) - (a.changePercent ?? -Infinity),
+  );
+  const topGainers = sortedStocks.filter((s) => (s.changePercent ?? 0) > 0).slice(0, 5);
+  const topLosers = [...sortedStocks]
+    .reverse()
+    .filter((s) => (s.changePercent ?? 0) < 0)
+    .slice(0, 5);
+
+  const lines: string[] = [];
+
+  lines.push("### LIVE MARKET DATA CONTEXT (ACTIVE UPSTOX FINANCIAL DASHBOARD)");
+  lines.push("Status: Connected & Streaming (Upstox API v2)");
+  lines.push(`Total Instruments Tracked: ${counts.total}`);
+  lines.push(
+    `- Category Breakdown: Stocks: ${counts.stocks} | Indices: ${counts.indices} | Futures: ${counts.futures} | Options: ${counts.options} | Commodities: ${counts.commodities}`,
+  );
+  lines.push(
+    `- Market Breadth: Advances: ${advanceCount} | Declines: ${declineCount} | Unchanged: ${unchangedCount} (${advancePercent}% advancing — ${breadthSentiment})`,
+  );
+
+  if (nifty50) {
+    const val = nifty50.value ?? nifty50.quote?.value;
+    const cp = nifty50.changePercent ?? nifty50.quote?.changePercent;
+    const chg = nifty50.change ?? nifty50.quote?.change;
+    lines.push(
+      `- Benchmark (Nifty 50): ${formatPrice(val)} (${formatChange(chg, cp)})`,
+    );
+  }
+
+  if (clientContext?.activeFilter) {
+    lines.push(`- User Active Dashboard Tab: ${clientContext.activeFilter.toUpperCase()}`);
+  }
+
+  // Selected Instrument Detail
+  const sel = clientContext?.selectedPoint;
+  if (sel) {
+    const sym = sel.quote?.symbol || sel.label || sel.instrument || "Selected Instrument";
+    const val = sel.quote?.value;
+    const cp = sel.quote?.changePercent;
+    const chg = sel.quote?.change;
+    const vol = sel.quote?.volume;
+    const high = sel.quote?.high;
+    const low = sel.quote?.low;
+    const avg = sel.quote?.averagePrice;
+    lines.push(
+      `- Currently Inspected Instrument Deep-Dive: **${sym}** (CMP: ${formatPrice(val)}, Change: ${formatChange(chg, cp)}, Day Range: ${formatPrice(low)} - ${formatPrice(high)}, Volume: ${formatVolume(vol)}, VWAP: ${formatPrice(avg)})`,
+    );
+  }
+
+  // Options Section
+  lines.push("\n#### OPTIONS CONTRACTS LIST (Total: " + counts.options + "):");
+  if (options.length > 0) {
+    options.forEach((opt, idx) => {
+      lines.push(
+        `${idx + 1}. **${opt.label}** (${opt.symbol}) — CMP: ${formatPrice(opt.value)} | Change: ${formatChange(opt.change, opt.changePercent)} | Volume: ${formatVolume(opt.volume)}`,
+      );
+    });
+  } else {
+    lines.push(`Currently tracking ${counts.options} active options contracts.`);
+  }
+
+  // Commodities Section
+  lines.push("\n#### COMMODITIES LIST (Total: " + counts.commodities + "):");
+  if (commodities.length > 0) {
+    commodities.forEach((comm, idx) => {
+      lines.push(
+        `${idx + 1}. **${comm.label}** (${comm.symbol}) — CMP: ${formatPrice(comm.value)} | Change: ${formatChange(comm.change, comm.changePercent)} | Volume: ${formatVolume(comm.volume)}`,
+      );
+    });
+  } else {
+    lines.push(`Currently tracking ${counts.commodities} active commodities.`);
+  }
+
+  // Futures Section
+  lines.push("\n#### FUTURES CONTRACTS LIST (Total: " + counts.futures + "):");
+  if (futures.length > 0) {
+    futures.forEach((fut, idx) => {
+      lines.push(
+        `${idx + 1}. **${fut.label}** (${fut.symbol}) — CMP: ${formatPrice(fut.value)} | Change: ${formatChange(fut.change, fut.changePercent)} | Volume: ${formatVolume(fut.volume)}`,
+      );
+    });
+  } else {
+    lines.push(`Currently tracking ${counts.futures} active futures contracts.`);
+  }
+
+  // Indices Section
+  lines.push("\n#### BENCHMARK INDICES LIST (Total: " + counts.indices + "):");
+  indices.forEach((ind, idx) => {
+    lines.push(
+      `${idx + 1}. **${ind.label}** — CMP: ${formatPrice(ind.value)} | Change: ${formatChange(ind.change, ind.changePercent)}`,
+    );
+  });
+
+  // Top Stock Gainers & Losers
+  if (topGainers.length > 0) {
+    lines.push("\n#### TOP STOCK GAINERS (Momentum & Relative Strength):");
+    topGainers.forEach((s, idx) => {
+      lines.push(
+        `${idx + 1}. **${s.label}** (${s.symbol}) — CMP: ${formatPrice(s.value)} | Change: ${formatChange(s.change, s.changePercent)} | Range: [${formatPrice(s.low)} - ${formatPrice(s.high)}] | Vol: ${formatVolume(s.volume)}`,
+      );
+    });
+  }
+
+  if (topLosers.length > 0) {
+    lines.push("\n#### TOP STOCK LOSERS (Pullbacks / Declining):");
+    topLosers.forEach((s, idx) => {
+      lines.push(
+        `${idx + 1}. **${s.label}** (${s.symbol}) — CMP: ${formatPrice(s.value)} | Change: ${formatChange(s.change, s.changePercent)} | Range: [${formatPrice(s.low)} - ${formatPrice(s.high)}] | Vol: ${formatVolume(s.volume)}`,
+      );
+    });
+  }
+
+  // Complete Equities Directory
+  lines.push("\n#### COMPLETE STOCKS DIRECTORY (Total: " + counts.stocks + "):");
+  stocks.forEach((s) => {
+    lines.push(
+      `- ${s.label} (${s.symbol}): CMP ${formatPrice(s.value)} (${formatChange(s.change, s.changePercent)}), High: ${formatPrice(s.high)}, Low: ${formatPrice(s.low)}, Vol: ${formatVolume(s.volume)}`,
+    );
+  });
+
+  // Instructions for the AI Agent
+  lines.push("\n### AGENT INSTRUCTIONS FOR USER QUERIES:");
+  lines.push(
+    "1. **Accurate Direct Answers**: Answer counts, listings, and price inquiries directly from the live data above. For example, if asked 'how many in commodities list now?' or 'how many stocks in options?', give the exact number (" + counts.commodities + " commodities, " + counts.options + " options) and detail the instruments.",
+  );
+  lines.push(
+    "2. **Stock Recommendations & Trade Analysis**: When asked 'best stock price to buy?', 'what stock to buy?', or entry levels:\n" +
+      "   - Analyze the current live data: identify 2-3 standout stocks from the gainers / momentum list (e.g. positive change, outperforming Nifty 50, healthy volume) or strong dips near day's low/support with attractive risk-to-reward.\n" +
+      "   - Quote the EXACT stock symbol, company name, Current Market Price (CMP), suggested entry range, support / stop-loss reference level (e.g. day's Low), and target resistance.\n" +
+      "   - Factor in the current market breadth (" + advancePercent + "% advancing).\n" +
+      "   - Include a concise informational note that market prices fluctuate and this is quantitative market analysis, not personalized financial advice.",
+  );
+  lines.push(
+    "3. **Never Disclaim Data Availability**: DO NOT say 'I don't have access to live data' or 'I can't see the list', because the full real-time data feed is provided right here.",
+  );
+
+  return lines.join("\n");
+}

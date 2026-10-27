@@ -45,7 +45,7 @@ function formatNumber(val: number | null | undefined): string {
   return val.toLocaleString("en-IN");
 }
 
-type FilterType =
+export type FilterType =
   | "all"
   | "stocks"
   | "indices"
@@ -55,7 +55,48 @@ type FilterType =
   | "gainers"
   | "losers";
 
-export default function VisionMarketDataPanel() {
+export type VisionMarketContext = {
+  activeFilter: FilterType;
+  categoryCounts: {
+    stocks: number;
+    indices: number;
+    futures: number;
+    options: number;
+    commodities: number;
+    total: number;
+  };
+  analytics: {
+    advanceCount: number;
+    declineCount: number;
+    unchangedCount: number;
+    advancePercent: number;
+    topGainer: MarketDataPoint | null;
+    topLoser: MarketDataPoint | null;
+    volumeLeader: MarketDataPoint | null;
+    nifty50: MarketDataPoint | null;
+  } | null;
+  selectedPoint: MarketDataPoint | null;
+  compactPoints: Array<{
+    symbol: string;
+    label: string;
+    group: string;
+    value: number | null;
+    change: number | null;
+    changePercent: number | null;
+    volume: number | null;
+    high: number | null;
+    low: number | null;
+    open: number | null;
+  }>;
+};
+
+type VisionMarketDataPanelProps = {
+  onContextUpdate?: (context: VisionMarketContext) => void;
+};
+
+export default function VisionMarketDataPanel({
+  onContextUpdate,
+}: VisionMarketDataPanelProps = {}) {
   const [snapshot, setSnapshot] = useState<PipelineSnapshot | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
@@ -281,6 +322,38 @@ export default function VisionMarketDataPanel() {
     }
     return { stocks, indices, futures, options, commodities };
   }, [dataPoints]);
+
+  useEffect(() => {
+    if (!onContextUpdate) return;
+    onContextUpdate({
+      activeFilter: filter,
+      categoryCounts: {
+        ...categoryCounts,
+        total: dataPoints.length,
+      },
+      analytics,
+      selectedPoint,
+      compactPoints: dataPoints.map((p) => ({
+        symbol: p.quote.symbol,
+        label: p.label,
+        group: p.group,
+        value: p.quote.value,
+        change: p.quote.change,
+        changePercent: p.quote.changePercent,
+        volume: p.quote.volume ?? null,
+        high: p.quote.high ?? null,
+        low: p.quote.low ?? null,
+        open: p.quote.open ?? null,
+      })),
+    });
+  }, [
+    onContextUpdate,
+    filter,
+    categoryCounts,
+    analytics,
+    selectedPoint,
+    dataPoints,
+  ]);
 
   // Filtered multi-asset list
   const filteredPoints = useMemo(() => {

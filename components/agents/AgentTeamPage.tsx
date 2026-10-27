@@ -25,7 +25,9 @@ import {
 } from "@/lib/agent-model-preferences";
 import AgentChat from "./AgentChat";
 import AgentModelSettings from "./AgentModelSettings";
-import VisionMarketDataPanel from "./VisionMarketDataPanel";
+import VisionMarketDataPanel, {
+  type VisionMarketContext,
+} from "./VisionMarketDataPanel";
 import "./AgentTeamPage.css";
 
 const modelRequests = new Map<TeamId, Promise<AgentModelsResponse>>();
@@ -85,6 +87,8 @@ export default function AgentTeamPage({
   const [agentModelState, setAgentModelState] =
     useState<AgentModelState | null>(null);
   const [chatActivity, setChatActivity] = useState<AgentActivity | null>(null);
+  const [visionMarketContext, setVisionMarketContext] =
+    useState<VisionMarketContext | null>(null);
   const modelPreferences = useAgentModelPreferences();
 
   const acceptDashboard = useCallback(
@@ -401,6 +405,7 @@ export default function AgentTeamPage({
         <AgentChat
           assignedModel={assignedModel}
           loading={modelsLoading}
+          marketContext={teamId === "VISION" ? visionMarketContext : undefined}
           teamId={teamId}
           teamName={team.name}
           teamRole={team.role}
@@ -543,7 +548,9 @@ export default function AgentTeamPage({
         </section>
       )}
 
-      {teamId === "VISION" && view === "dashboard" && <VisionMarketDataPanel />}
+      {teamId === "VISION" && view === "dashboard" && (
+        <VisionMarketDataPanel onContextUpdate={setVisionMarketContext} />
+      )}
 
     </main>
   );
