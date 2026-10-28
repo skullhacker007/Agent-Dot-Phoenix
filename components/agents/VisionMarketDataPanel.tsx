@@ -45,6 +45,62 @@ function formatNumber(val: number | null | undefined): string {
   return val.toLocaleString("en-IN");
 }
 
+export function getIndianMarketStatus(): {
+  isOpen: boolean;
+  label: string;
+  detail: string;
+} {
+  try {
+    const now = new Date();
+    const kolkataStr = now.toLocaleString("en-US", { timeZone: "Asia/Kolkata" });
+    const kolkataDate = new Date(kolkataStr);
+    const day = kolkataDate.getDay(); // 0 is Sunday, 6 is Saturday
+    const hours = kolkataDate.getHours();
+    const minutes = kolkataDate.getMinutes();
+    const currentMinutes = hours * 60 + minutes;
+
+    const isWeekday = day >= 1 && day <= 5;
+    // NSE/BSE regular trading: 9:15 AM (555 min) to 3:30 PM (930 min) IST
+    const isMarketHours = currentMinutes >= 555 && currentMinutes < 930;
+
+    if (isWeekday && isMarketHours) {
+      return {
+        isOpen: true,
+        label: "Live Market",
+        detail: "NSE/BSE Regular Trading (9:15 AM – 3:30 PM IST)",
+      };
+    }
+
+    if (!isWeekday) {
+      return {
+        isOpen: false,
+        label: "Market Closed (Weekend)",
+        detail: "Exchange closed. Showing EOD final settlement quotes.",
+      };
+    }
+
+    if (currentMinutes < 555) {
+      return {
+        isOpen: false,
+        label: "Pre-Market / Closed",
+        detail: "Regular trading opens at 9:15 AM IST. Showing previous session EOD data.",
+      };
+    }
+
+    return {
+      isOpen: false,
+      label: "Market Closed · EOD Final",
+      detail: "Regular market closed at 3:30 PM IST. Showing latest EOD closing data.",
+    };
+  } catch {
+    return {
+      isOpen: false,
+      label: "EOD Data",
+      detail: "Showing latest observed market quotes.",
+    };
+  }
+}
+
 export type FilterType =
   | "all"
   | "stocks"
@@ -173,6 +229,8 @@ export default function VisionMarketDataPanel({
   const [pageSize, setPageSize] = useState<number>(15);
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [sortConfig, setSortConfig] = useState<SortConfig>(null);
+
+  const marketStatus = useMemo(() => getIndianMarketStatus(), [snapshot]);
 
   const controllerRef = useRef<AbortController | null>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -543,6 +601,50 @@ export default function VisionMarketDataPanel({
     );
   }, [selectedPoint, dataPoints]);
 
+  const activeBids = useMemo(() => {
+    if (!activePoint?.quote.depth?.buy) return [];
+    return activePoint.quote.depth.buy
+      .filter(
+        (item) =>
+          (item.price !== null && item.price !== undefined && item.price > 0) ||
+          (item.quantity !== null && item.quantity !== undefined && item.quantity > 0),
+      )
+      .slice(0, 5);
+  }, [activePoint]);
+
+  const activeAsks = useMemo(() => {
+    if (!activePoint?.quote.depth?.sell) return [];
+    return activePoint.quote.depth.sell
+      .filter(
+        (item) =>
+          (item.price !== null && item.price !== undefined && item.price > 0) ||
+          (item.quantity !== null && item.quantity !== undefined && item.quantity > 0),
+      )
+      .slice(0, 5);
+  }, [activePoint]);
+
+  const totalBidsQty = useMemo(() => {
+    if (
+      activePoint?.quote.totalBuyQuantity !== null &&
+      activePoint?.quote.totalBuyQuantity !== undefined &&
+      activePoint.quote.totalBuyQuantity > 0
+    ) {
+      return activePoint.quote.totalBuyQuantity;
+    }
+    return activeBids.reduce((acc, it) => acc + (it.quantity ?? 0), 0);
+  }, [activePoint, activeBids]);
+
+  const totalAsksQty = useMemo(() => {
+    if (
+      activePoint?.quote.totalSellQuantity !== null &&
+      activePoint?.quote.totalSellQuantity !== undefined &&
+      activePoint.quote.totalSellQuantity > 0
+    ) {
+      return activePoint.quote.totalSellQuantity;
+    }
+    return activeAsks.reduce((acc, it) => acc + (it.quantity ?? 0), 0);
+  }, [activePoint, activeAsks]);
+
   return (
     <section
       className="vision-market-data"
@@ -560,14 +662,32 @@ export default function VisionMarketDataPanel({
               Provider: <strong>Upstox API v2 Live</strong>
             </span>
             <span className="vision-market-data-provider-tag">
-              Updated:{" "}
-              <strong>{formatTime(snapshot?.status?.lastUpdatedAtMs)}</strong>
+              Updated (EOD):{" "}
+              <strong>
+                {formatTime(
+                  snapshot?.status?.lastUpdatedAtMs ??
+                    snapshot?.status?.lastSuccessAtMs,
+                )}
+              </strong>
             </span>
             {snapshot?.status?.connected && (
-              <span className="vision-live-indicator">
-                <span className="vision-live-dot" />
-                Live Feed
-              </span>
+              marketStatus.isOpen ? (
+                <span className="vision-live-indicator">
+                  <span className="vision-live-dot" />
+                  Live Feed
+                </span>
+              ) : (
+                <span
+                  className="vision-market-data-provider-tag"
+                  style={{
+                    borderColor: "rgba(234, 179, 8, 0.4)",
+                    color: "#eab308",
+                  }}
+                  title={marketStatus.detail}
+                >
+                  ● {marketStatus.label}
+                </span>
+              )
             )}
           </div>
         </div>
@@ -889,8 +1009,22 @@ export default function VisionMarketDataPanel({
                   const prevClose = point.quote.previousClose;
                   const vol = point.quote.volume;
                   const vwap = point.quote.averagePrice;
-                  const buyQty = point.quote.totalBuyQuantity ?? 0;
-                  const sellQty = point.quote.totalSellQuantity ?? 0;
+                  const depthBuySum =
+                    point.quote.depth?.buy?.reduce((acc, b) => acc + (b.quantity || 0), 0) ?? 0;
+                  const depthSellSum =
+                    point.quote.depth?.sell?.reduce((acc, s) => acc + (s.quantity || 0), 0) ?? 0;
+                  const buyQty =
+                    point.quote.totalBuyQuantity !== null &&
+                    point.quote.totalBuyQuantity !== undefined &&
+                    point.quote.totalBuyQuantity > 0
+                      ? point.quote.totalBuyQuantity
+                      : depthBuySum;
+                  const sellQty =
+                    point.quote.totalSellQuantity !== null &&
+                    point.quote.totalSellQuantity !== undefined &&
+                    point.quote.totalSellQuantity > 0
+                      ? point.quote.totalSellQuantity
+                      : depthSellSum;
                   const totalBook = buyQty + sellQty;
                   const buyRatio =
                     totalBook > 0 ? (buyQty / totalBook) * 100 : 50;
@@ -1029,19 +1163,30 @@ export default function VisionMarketDataPanel({
                         ) : (
                           <div className="vision-instrument-cell">
                             <span className="vision-instrument-name">
-                              B: {formatNumber(buyQty)} · S:{" "}
-                              {formatNumber(sellQty)}
+                              {totalBook > 0 ? (
+                                `B: ${formatNumber(buyQty)} · S: ${formatNumber(sellQty)}`
+                              ) : (
+                                "No active orders"
+                              )}
                             </span>
                             <div className="vision-depth-bar">
                               <div
                                 className="vision-depth-buy"
                                 style={{ width: `${buyRatio}%` }}
-                                title={`Buy Demand: ${buyRatio.toFixed(1)}%`}
+                                title={
+                                  totalBook > 0
+                                    ? `Buy Demand: ${buyRatio.toFixed(1)}%`
+                                    : "No active orders"
+                                }
                               />
                               <div
                                 className="vision-depth-sell"
                                 style={{ width: `${100 - buyRatio}%` }}
-                                title={`Sell Supply: ${(100 - buyRatio).toFixed(1)}%`}
+                                title={
+                                  totalBook > 0
+                                    ? `Sell Supply: ${(100 - buyRatio).toFixed(1)}%`
+                                    : "No active orders"
+                                }
                               />
                             </div>
                           </div>
@@ -1200,14 +1345,26 @@ export default function VisionMarketDataPanel({
                   {activePoint.quote.changePercent?.toFixed(2)}%)
                 </span>
               </div>
-              <button
-                className="vision-modal-close"
-                onClick={() => setSelectedPoint(null)}
-                type="button"
-                aria-label="Close modal"
-              >
-                ✕
-              </button>
+              <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                <button
+                  className="vision-modal-close"
+                  onClick={() => void fetchLiveQuotes()}
+                  type="button"
+                  aria-label="Refresh depth"
+                  title="Refresh live quote and depth"
+                  disabled={refreshing}
+                >
+                  ↻
+                </button>
+                <button
+                  className="vision-modal-close"
+                  onClick={() => setSelectedPoint(null)}
+                  type="button"
+                  aria-label="Close modal"
+                >
+                  ✕
+                </button>
+              </div>
             </div>
 
             {activePoint.group.toLowerCase().includes("indices") ? (
@@ -1292,7 +1449,12 @@ export default function VisionMarketDataPanel({
                   {/* Buy Bids */}
                   <div className="vision-depth-col buy">
                     <div className="vision-depth-col-title">
-                      Top 5 Bids (Buyers)
+                      <span>Top 5 Bids (Buyers)</span>
+                      {totalBidsQty > 0 && (
+                        <span className="vision-depth-total">
+                          Total: {formatNumber(totalBidsQty)}
+                        </span>
+                      )}
                     </div>
                     <table className="vision-depth-table">
                       <thead>
@@ -1303,13 +1465,23 @@ export default function VisionMarketDataPanel({
                         </tr>
                       </thead>
                       <tbody>
-                        {(activePoint.quote.depth?.buy ?? []).length > 0 ? (
-                          activePoint.quote.depth?.buy?.map((item, idx) => (
+                        {activeBids.length > 0 ? (
+                          activeBids.map((item, idx) => (
                             <tr key={`buy-${idx}`}>
-                              <td>{item.orders ?? "—"}</td>
-                              <td>{formatNumber(item.quantity)}</td>
+                              <td>
+                                {typeof item.orders === "number" && item.orders > 0
+                                  ? item.orders
+                                  : "—"}
+                              </td>
+                              <td>
+                                {typeof item.quantity === "number" && item.quantity > 0
+                                  ? formatNumber(item.quantity)
+                                  : "—"}
+                              </td>
                               <td style={{ fontWeight: 700 }}>
-                                {formatPrice(item.price, "INR")}
+                                {typeof item.price === "number" && item.price > 0
+                                  ? formatPrice(item.price, "INR")
+                                  : "—"}
                               </td>
                             </tr>
                           ))
@@ -1319,10 +1491,11 @@ export default function VisionMarketDataPanel({
                               colSpan={3}
                               style={{
                                 textAlign: "center",
-                                color: "var(--muted)",
+                                padding: "1.25rem 0.5rem",
+                                color: "var(--muted, #94a0b2)",
                               }}
                             >
-                              No active bids
+                              No active bids in queue
                             </td>
                           </tr>
                         )}
@@ -1333,7 +1506,12 @@ export default function VisionMarketDataPanel({
                   {/* Sell Asks */}
                   <div className="vision-depth-col sell">
                     <div className="vision-depth-col-title">
-                      Top 5 Asks (Sellers)
+                      <span>Top 5 Asks (Sellers)</span>
+                      {totalAsksQty > 0 && (
+                        <span className="vision-depth-total">
+                          Total: {formatNumber(totalAsksQty)}
+                        </span>
+                      )}
                     </div>
                     <table className="vision-depth-table">
                       <thead>
@@ -1344,14 +1522,24 @@ export default function VisionMarketDataPanel({
                         </tr>
                       </thead>
                       <tbody>
-                        {(activePoint.quote.depth?.sell ?? []).length > 0 ? (
-                          activePoint.quote.depth?.sell?.map((item, idx) => (
+                        {activeAsks.length > 0 ? (
+                          activeAsks.map((item, idx) => (
                             <tr key={`sell-${idx}`}>
                               <td style={{ fontWeight: 700 }}>
-                                {formatPrice(item.price, "INR")}
+                                {typeof item.price === "number" && item.price > 0
+                                  ? formatPrice(item.price, "INR")
+                                  : "—"}
                               </td>
-                              <td>{formatNumber(item.quantity)}</td>
-                              <td>{item.orders ?? "—"}</td>
+                              <td>
+                                {typeof item.quantity === "number" && item.quantity > 0
+                                  ? formatNumber(item.quantity)
+                                  : "—"}
+                              </td>
+                              <td>
+                                {typeof item.orders === "number" && item.orders > 0
+                                  ? item.orders
+                                  : "—"}
+                              </td>
                             </tr>
                           ))
                         ) : (
@@ -1360,10 +1548,11 @@ export default function VisionMarketDataPanel({
                               colSpan={3}
                               style={{
                                 textAlign: "center",
-                                color: "var(--muted)",
+                                padding: "1.25rem 0.5rem",
+                                color: "var(--muted, #94a0b2)",
                               }}
                             >
-                              No active asks
+                              No active asks in queue
                             </td>
                           </tr>
                         )}
@@ -1374,10 +1563,69 @@ export default function VisionMarketDataPanel({
               </>
             )}
 
-            <div style={{ marginTop: "16px", textAlign: "right" }}>
-              <span className="vision-instrument-name">
-                Observed At: {formatTime(activePoint.quote.observedAtMs)}
-              </span>
+            <div
+              className="vision-modal-footer-info"
+              style={{
+                marginTop: "20px",
+                paddingTop: "14px",
+                borderTop: "1px solid var(--vision-border, rgba(255, 255, 255, 0.08))",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                flexWrap: "wrap",
+                gap: "10px",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                <span
+                  style={{
+                    fontSize: "0.75rem",
+                    color: "var(--muted, #94a0b2)",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.05em",
+                    fontWeight: 600,
+                  }}
+                >
+                  Market Status:
+                </span>
+                <span
+                  style={{
+                    fontSize: "0.8rem",
+                    fontWeight: 600,
+                    color: marketStatus.isOpen ? "#10b981" : "#eab308",
+                  }}
+                  title={marketStatus.detail}
+                >
+                  {marketStatus.label}
+                </span>
+              </div>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "16px",
+                  flexWrap: "wrap",
+                }}
+              >
+                {activePoint.quote.lastTradeTimeMs && (
+                  <span
+                    className="vision-instrument-name"
+                    style={{ fontSize: "0.8rem" }}
+                    title="Last executed trade on NSE/BSE before regular market close (3:30 PM IST)"
+                  >
+                    Last Trade (LTT):{" "}
+                    <strong>{formatTime(activePoint.quote.lastTradeTimeMs)}</strong>
+                  </span>
+                )}
+                <span
+                  className="vision-instrument-name"
+                  style={{ fontSize: "0.8rem" }}
+                  title="Timestamp when this EOD quote snapshot was fetched from Upstox"
+                >
+                  Latest Updated (EOD):{" "}
+                  <strong>{formatTime(activePoint.quote.observedAtMs)}</strong>
+                </span>
+              </div>
             </div>
           </div>
         </div>

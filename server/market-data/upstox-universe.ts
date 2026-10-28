@@ -50,56 +50,56 @@ export const DEFAULT_INDIAN_INDICES: InstrumentConfig[] = [
 ];
 
 export const DEFAULT_INDIAN_EQUITIES: InstrumentConfig[] = [
-  { instrument: "NSE_EQ|INE002A01018", label: "Reliance Industries", group: "NSE equities" },
-  { instrument: "NSE_EQ|INE040A01034", label: "HDFC Bank", group: "NSE equities" },
-  { instrument: "NSE_EQ|INE467B01029", label: "Tata Consultancy Services", group: "NSE equities" },
-  { instrument: "NSE_EQ|INE009A01021", label: "Infosys", group: "NSE equities" },
-  { instrument: "NSE_EQ|INE090A01021", label: "ICICI Bank", group: "NSE equities" },
-  { instrument: "NSE_EQ|INE062A01020", label: "State Bank of India", group: "NSE equities" },
-  { instrument: "NSE_EQ|INE397D01024", label: "Bharti Airtel", group: "NSE equities" },
-  { instrument: "NSE_EQ|INE018A01030", label: "Larsen & Toubro", group: "NSE equities" },
-  { instrument: "NSE_EQ|INE154A01025", label: "ITC Limited", group: "NSE equities" },
-  { instrument: "NSE_EQ|INE155A01022", label: "Tata Motors", group: "NSE equities" },
-  { instrument: "NSE_EQ|INE030A01027", label: "Hindustan Unilever", group: "NSE equities" },
-  { instrument: "NSE_EQ|INE238A01034", label: "Axis Bank", group: "NSE equities" },
-  { instrument: "NSE_EQ|INE044A01036", label: "Sun Pharma", group: "NSE equities" },
-  { instrument: "NSE_EQ|INE296A01024", label: "Bajaj Finance", group: "NSE equities" },
-  { instrument: "NSE_EQ|INE081A01020", label: "Tata Steel", group: "NSE equities" },
-  { instrument: "NSE_EQ|INE585B01010", label: "Maruti Suzuki", group: "NSE equities" },
-  { instrument: "NSE_EQ|INE176A01028", label: "Asian Paints", group: "NSE equities" },
-  { instrument: "NSE_EQ|INE280A01028", label: "Titan Company", group: "NSE equities" },
-  { instrument: "NSE_EQ|INE237A01028", label: "Kotak Mahindra Bank", group: "NSE equities" },
-  { instrument: "NSE_EQ|INE423A01024", label: "Adani Enterprises", group: "NSE equities" },
-  { instrument: "NSE_EQ|INE481G01011", label: "UltraTech Cement", group: "NSE equities" },
-  { instrument: "NSE_EQ|INE752E01010", label: "Power Grid Corp", group: "NSE equities" },
-  { instrument: "NSE_EQ|INE733E01010", label: "NTPC Limited", group: "NSE equities" },
-  { instrument: "NSE_EQ|INE213A01029", label: "ONGC", group: "NSE equities" },
-  { instrument: "NSE_EQ|INE522F01014", label: "Coal India", group: "NSE equities" },
-  { instrument: "NSE_EQ|INE075A01022", label: "Wipro", group: "NSE equities" },
-  { instrument: "NSE_EQ|INE019A01038", label: "JSW Steel", group: "NSE equities" },
-  { instrument: "NSE_EQ|INE102D01028", label: "Tech Mahindra", group: "NSE equities" },
-  { instrument: "NSE_EQ|INE047A01021", label: "Grasim Industries", group: "NSE equities" },
-  { instrument: "NSE_EQ|INE860A01027", label: "HCL Technologies", group: "NSE equities" },
-  { instrument: "NSE_EQ|INE918I01018", label: "Bajaj Finserv", group: "NSE equities" },
-  { instrument: "NSE_EQ|INE917I01010", label: "Bajaj Auto", group: "NSE equities" },
-  { instrument: "NSE_EQ|INE038A01020", label: "Hindalco Industries", group: "NSE equities" },
-  { instrument: "NSE_EQ|INE101A01026", label: "Mahindra & Mahindra", group: "NSE equities" },
-  { instrument: "NSE_EQ|INE059A01026", label: "Cipla", group: "NSE equities" },
-  { instrument: "NSE_EQ|INE089A01023", label: "Dr. Reddy's Laboratories", group: "NSE equities" },
-  { instrument: "NSE_EQ|INE158A01026", label: "Hero MotoCorp", group: "NSE equities" },
-  { instrument: "NSE_EQ|INE216A01030", label: "Britannia Industries", group: "NSE equities" },
-  { instrument: "NSE_EQ|INE066A01021", label: "Eicher Motors", group: "NSE equities" },
-  { instrument: "NSE_EQ|INE437A01024", label: "Apollo Hospitals", group: "NSE equities" },
-  { instrument: "NSE_EQ|INE361B01024", label: "Divi's Laboratories", group: "NSE equities" },
-  { instrument: "NSE_EQ|INE263A01024", label: "Bharat Electronics", group: "NSE equities" },
-  { instrument: "NSE_EQ|INE721A01013", label: "Shriram Finance", group: "NSE equities" },
-  { instrument: "NSE_EQ|INE849A01020", label: "Trent", group: "NSE equities" },
-  { instrument: "NSE_EQ|INE758T01015", label: "Jio Financial Services", group: "NSE equities" },
-  { instrument: "NSE_EQ|INE192A01025", label: "Tata Consumer Products", group: "NSE equities" },
-  { instrument: "NSE_EQ|INE029A01011", label: "Bharat Petroleum", group: "NSE equities" },
-  { instrument: "NSE_EQ|INE095A01012", label: "IndusInd Bank", group: "NSE equities" },
-  { instrument: "NSE_EQ|INE123W01016", label: "SBI Life Insurance", group: "NSE equities" },
-  { instrument: "NSE_EQ|INE795G01014", label: "HDFC Life Insurance", group: "NSE equities" },
+  { instrument: "NSE_EQ|INE002A01018", label: "Reliance Industries", group: "NSE equities", symbol: "RELIANCE" },
+  { instrument: "NSE_EQ|INE040A01034", label: "HDFC Bank", group: "NSE equities", symbol: "HDFCBANK" },
+  { instrument: "NSE_EQ|INE467B01029", label: "Tata Consultancy Services", group: "NSE equities", symbol: "TCS" },
+  { instrument: "NSE_EQ|INE009A01021", label: "Infosys", group: "NSE equities", symbol: "INFY" },
+  { instrument: "NSE_EQ|INE090A01021", label: "ICICI Bank", group: "NSE equities", symbol: "ICICIBANK" },
+  { instrument: "NSE_EQ|INE062A01020", label: "State Bank of India", group: "NSE equities", symbol: "SBIN" },
+  { instrument: "NSE_EQ|INE397D01024", label: "Bharti Airtel", group: "NSE equities", symbol: "BHARTIARTL" },
+  { instrument: "NSE_EQ|INE018A01030", label: "Larsen & Toubro", group: "NSE equities", symbol: "LT" },
+  { instrument: "NSE_EQ|INE154A01025", label: "ITC Limited", group: "NSE equities", symbol: "ITC" },
+  { instrument: "NSE_EQ|INE155A01022", label: "Tata Motors", group: "NSE equities", symbol: "TATAMOTORS" },
+  { instrument: "NSE_EQ|INE030A01027", label: "Hindustan Unilever", group: "NSE equities", symbol: "HINDUNILVR" },
+  { instrument: "NSE_EQ|INE238A01034", label: "Axis Bank", group: "NSE equities", symbol: "AXISBANK" },
+  { instrument: "NSE_EQ|INE044A01036", label: "Sun Pharma", group: "NSE equities", symbol: "SUNPHARMA" },
+  { instrument: "NSE_EQ|INE296A01024", label: "Bajaj Finance", group: "NSE equities", symbol: "BAJFINANCE" },
+  { instrument: "NSE_EQ|INE081A01020", label: "Tata Steel", group: "NSE equities", symbol: "TATASTEEL" },
+  { instrument: "NSE_EQ|INE585B01010", label: "Maruti Suzuki", group: "NSE equities", symbol: "MARUTI" },
+  { instrument: "NSE_EQ|INE176A01028", label: "Asian Paints", group: "NSE equities", symbol: "ASIANPAINT" },
+  { instrument: "NSE_EQ|INE280A01028", label: "Titan Company", group: "NSE equities", symbol: "TITAN" },
+  { instrument: "NSE_EQ|INE237A01028", label: "Kotak Mahindra Bank", group: "NSE equities", symbol: "KOTAKBANK" },
+  { instrument: "NSE_EQ|INE423A01024", label: "Adani Enterprises", group: "NSE equities", symbol: "ADANIENT" },
+  { instrument: "NSE_EQ|INE481G01011", label: "UltraTech Cement", group: "NSE equities", symbol: "ULTRACEMCO" },
+  { instrument: "NSE_EQ|INE752E01010", label: "Power Grid Corp", group: "NSE equities", symbol: "POWERGRID" },
+  { instrument: "NSE_EQ|INE733E01010", label: "NTPC Limited", group: "NSE equities", symbol: "NTPC" },
+  { instrument: "NSE_EQ|INE213A01029", label: "ONGC", group: "NSE equities", symbol: "ONGC" },
+  { instrument: "NSE_EQ|INE522F01014", label: "Coal India", group: "NSE equities", symbol: "COALINDIA" },
+  { instrument: "NSE_EQ|INE075A01022", label: "Wipro", group: "NSE equities", symbol: "WIPRO" },
+  { instrument: "NSE_EQ|INE019A01038", label: "JSW Steel", group: "NSE equities", symbol: "JSWSTEEL" },
+  { instrument: "NSE_EQ|INE102D01028", label: "Tech Mahindra", group: "NSE equities", symbol: "TECHM" },
+  { instrument: "NSE_EQ|INE047A01021", label: "Grasim Industries", group: "NSE equities", symbol: "GRASIM" },
+  { instrument: "NSE_EQ|INE860A01027", label: "HCL Technologies", group: "NSE equities", symbol: "HCLTECH" },
+  { instrument: "NSE_EQ|INE918I01018", label: "Bajaj Finserv", group: "NSE equities", symbol: "BAJAJFINSV" },
+  { instrument: "NSE_EQ|INE917I01010", label: "Bajaj Auto", group: "NSE equities", symbol: "BAJAJ-AUTO" },
+  { instrument: "NSE_EQ|INE038A01020", label: "Hindalco Industries", group: "NSE equities", symbol: "HINDALCO" },
+  { instrument: "NSE_EQ|INE101A01026", label: "Mahindra & Mahindra", group: "NSE equities", symbol: "M&M" },
+  { instrument: "NSE_EQ|INE059A01026", label: "Cipla", group: "NSE equities", symbol: "CIPLA" },
+  { instrument: "NSE_EQ|INE089A01023", label: "Dr. Reddy's Laboratories", group: "NSE equities", symbol: "DRREDDY" },
+  { instrument: "NSE_EQ|INE158A01026", label: "Hero MotoCorp", group: "NSE equities", symbol: "HEROMOTOCO" },
+  { instrument: "NSE_EQ|INE216A01030", label: "Britannia Industries", group: "NSE equities", symbol: "BRITANNIA" },
+  { instrument: "NSE_EQ|INE066A01021", label: "Eicher Motors", group: "NSE equities", symbol: "EICHERMOT" },
+  { instrument: "NSE_EQ|INE437A01024", label: "Apollo Hospitals", group: "NSE equities", symbol: "APOLLOHOSP" },
+  { instrument: "NSE_EQ|INE361B01024", label: "Divi's Laboratories", group: "NSE equities", symbol: "DIVISLAB" },
+  { instrument: "NSE_EQ|INE263A01024", label: "Bharat Electronics", group: "NSE equities", symbol: "BEL" },
+  { instrument: "NSE_EQ|INE721A01013", label: "Shriram Finance", group: "NSE equities", symbol: "SHRIRAMFIN" },
+  { instrument: "NSE_EQ|INE849A01020", label: "Trent", group: "NSE equities", symbol: "TRENT" },
+  { instrument: "NSE_EQ|INE758T01015", label: "Jio Financial Services", group: "NSE equities", symbol: "JIOFIN" },
+  { instrument: "NSE_EQ|INE192A01025", label: "Tata Consumer Products", group: "NSE equities", symbol: "TATACONSUM" },
+  { instrument: "NSE_EQ|INE029A01011", label: "Bharat Petroleum", group: "NSE equities", symbol: "BPCL" },
+  { instrument: "NSE_EQ|INE095A01012", label: "IndusInd Bank", group: "NSE equities", symbol: "INDUSINDBK" },
+  { instrument: "NSE_EQ|INE123W01016", label: "SBI Life Insurance", group: "NSE equities", symbol: "SBILIFE" },
+  { instrument: "NSE_EQ|INE795G01014", label: "HDFC Life Insurance", group: "NSE equities", symbol: "HDFCLIFE" },
 ];
 
 export const DEFAULT_INDIAN_FUTURES: InstrumentConfig[] = [
@@ -140,6 +140,7 @@ const masterRowSchema = z
     instrument_token: z.string().nullish(),
     exchange_token: z.string().nullish(),
     name: z.string().nullish(),
+    short_name: z.string().nullish(),
     tradingsymbol: z.string().nullish(),
     trading_symbol: z.string().nullish(),
     segment: z.string().nullish(),
@@ -249,6 +250,8 @@ export function deriveInstrumentKey(row: MasterRow): string | null {
 }
 
 function labelFor(row: MasterRow, fallback: string): string {
+  const shortName = row.short_name?.trim();
+  if (shortName) return shortName;
   const name = row.name?.trim();
   if (name) return name;
   const tradingsymbol = row.trading_symbol?.trim() || row.tradingsymbol?.trim();
@@ -256,13 +259,59 @@ function labelFor(row: MasterRow, fallback: string): string {
   return fallback;
 }
 
-function isEquityRow(row: MasterRow): boolean {
+export function isEquityRow(row: MasterRow): boolean {
   const segment = row.segment?.trim().toUpperCase();
   const type = row.instrument_type?.trim().toUpperCase();
-  const key = row.instrument_key?.trim();
-  if (key?.startsWith("NSE_EQ|")) return true;
-  if (segment === "NSE_EQ" && (type === "EQ" || type === "EQUITY" || !type)) return true;
-  return false;
+  const exchange = row.exchange?.trim().toUpperCase();
+  const key = row.instrument_key?.trim().toUpperCase();
+
+  const isNse =
+    segment === "NSE_EQ" ||
+    (segment === "NSE" && exchange === "NSE") ||
+    key?.startsWith("NSE_EQ|");
+  if (!isNse) return false;
+
+  // Must strictly be common equity (EQ or EQUITY) or trade-to-trade equity (BE).
+  // Commercial papers (CP), bonds (BOND), debentures (NCD, N0-N9, NI, NH), Govt Securities (GS/TB/SG),
+  // and preference shares must NEVER be treated as equities.
+  if (type !== "EQ" && type !== "EQUITY" && type !== "BE") {
+    return false;
+  }
+
+  const symbol = (row.trading_symbol || row.tradingsymbol || "").trim().toUpperCase();
+
+  // On NSE, all genuine equity stocks start with a letter (e.g. RELIANCE, TCS).
+  // Any ticker starting with digits is a coupon-bearing bond, loan, or paper (e.g. 1020CCSP27, 686RJ52, 743PN48).
+  if (/^\d/.test(symbol)) {
+    return false;
+  }
+
+  // Reject sovereign gold bonds, debentures, or other debt tickers
+  if (
+    symbol.endsWith("-SG") ||
+    symbol.endsWith("-GB") ||
+    symbol.startsWith("SGB") ||
+    symbol.endsWith("-NCD") ||
+    symbol.endsWith("-CP")
+  ) {
+    return false;
+  }
+
+  // Double-check company name for debt keywords (State Development Loans, NCDs, CPs, debentures)
+  const name = (row.name || "").toUpperCase();
+  if (
+    name.includes("SDL ") ||
+    name.includes("SR ") ||
+    name.includes("SERIES ") ||
+    name.includes("NCD") ||
+    name.includes("COMMERCIAL PAPER") ||
+    name.includes("DEBENTURE") ||
+    /\d+\.\d+%\s*\d{4}/.test(name)
+  ) {
+    return false;
+  }
+
+  return true;
 }
 
 function isIndexRow(row: MasterRow): boolean {
@@ -293,7 +342,7 @@ export async function discoverIndianUniverse(
   const commoditiesLimit = isLegacy ? 4 : (limitsOrEquityLimit.commodities ?? 4);
   const signal = isLegacy ? maybeSignal : (indexLimitOrSignal instanceof AbortSignal ? indexLimitOrSignal : undefined);
 
-  const cacheKey = `upstox:universe:v4:${equityLimit}:${indexLimit}:${futuresLimit}:${optionsLimit}:${commoditiesLimit}`;
+  const cacheKey = `upstox:universe:v5:${equityLimit}:${indexLimit}:${futuresLimit}:${optionsLimit}:${commoditiesLimit}`;
 
   return withDiscoveryCache(
     cacheKey,
@@ -322,10 +371,12 @@ export async function discoverIndianUniverse(
             const instrument = deriveInstrumentKey(row);
             if (!instrument || seenKeys.has(instrument)) continue;
             seenKeys.add(instrument);
+            const symbol = (row.trading_symbol || row.tradingsymbol || "").trim().toUpperCase() || undefined;
             equities.push({
               instrument,
               label: labelFor(row, instrument),
               group: "NSE equities",
+              symbol,
             });
           }
         }

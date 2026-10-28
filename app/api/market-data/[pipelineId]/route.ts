@@ -33,6 +33,15 @@ export async function GET(_request: Request, context: RouteContext) {
     );
   }
 
+  const url = new URL(_request.url);
+  if (url.searchParams.get("force") === "true") {
+    try {
+      await pipeline.getData({ signal: _request.signal, force: true });
+    } catch {
+      // Return whatever snapshot is available on error
+    }
+  }
+
   return Response.json(
     { snapshot: pipeline.getSnapshot() },
     { headers: NO_STORE },
@@ -53,7 +62,7 @@ export async function POST(request: Request, context: RouteContext) {
   }
 
   try {
-    await pipeline.getData({ signal: request.signal });
+    await pipeline.getData({ signal: request.signal, force: true });
     // getData caches on success; re-read so status + points stay consistent.
     const snapshot = pipeline.getSnapshot();
     return Response.json(

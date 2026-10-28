@@ -1,4 +1,4 @@
-export const MODEL_RESPONSE_TIME_LIMIT_MS = 1000;
+export const MODEL_RESPONSE_TIME_LIMIT_MS = 5000;
 
 const TEST_MESSAGE = "Reply with the word READY.";
 const RESULT_CACHE_TTL_MS = 60_000;
@@ -7,6 +7,8 @@ export type ModelSpeedTestResult = {
   model: string;
   responseTime: number | null;
   status: "WAITING" | "TESTING" | "WORKING" | "NOT WORKING";
+  statusCode?: number | null;
+  errorMessage?: string | null;
 };
 
 const resultCache = new Map<
@@ -94,6 +96,8 @@ export async function testModel(
     MODEL_RESPONSE_TIME_LIMIT_MS,
   );
   let working = false;
+  let statusCode: number | null = null;
+  let errorMessage: string | null = null;
 
   try {
     const response = await fetch("/api/agents/chat", {
@@ -106,9 +110,24 @@ export async function testModel(
       }),
       signal: controller.signal,
     });
-    working = await hasValidCompletion(response);
+    statusCode = response.status;
+    if (!response.ok) {
+      try {
+        const errorData = await response.json();
+        errorMessage = errorData.error || response.statusText;
+      } catch {
+        errorMessage = response.statusText;
+      }
+    } else {
+      working = await hasValidCompletion(response);
+    }
   } catch (error) {
     if (parentSignal.aborted) throw error;
+    if (error instanceof Error && error.name === "AbortError") {
+      errorMessage = `Timed out (> ${MODEL_RESPONSE_TIME_LIMIT_MS} ms)`;
+    } else if (error instanceof Error) {
+      errorMessage = error.message;
+    }
   } finally {
     window.clearTimeout(timeout);
     parentSignal.removeEventListener("abort", abortWithParent);
@@ -122,6 +141,8 @@ export async function testModel(
       working && responseTime <= MODEL_RESPONSE_TIME_LIMIT_MS
         ? "WORKING"
         : "NOT WORKING",
+    statusCode,
+    errorMessage,
   };
   resultCache.set(modelId, {
     result,

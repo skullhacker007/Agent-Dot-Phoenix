@@ -189,7 +189,10 @@ export class MarketDataPipeline {
       const observedAt = point.quote.observedAtMs;
       return max === null || observedAt > max ? observedAt : max;
     }, null);
-    this.lastUpdatedAtMs = newest;
+    this.lastUpdatedAtMs =
+      newest !== null
+        ? Math.max(newest, this.lastSuccessAtMs)
+        : this.lastSuccessAtMs;
   }
 
   private recordFailure(error: unknown): void {

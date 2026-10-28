@@ -596,11 +596,23 @@
 }
 
 .vision-depth-col-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
   font-size: 0.71875rem;
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   margin-bottom: 0.5rem;
+}
+
+.vision-depth-total {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--muted, #94a0b2);
+  text-transform: none;
+  letter-spacing: normal;
 }
 
 .vision-depth-col.buy .vision-depth-col-title {

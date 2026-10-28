@@ -26,11 +26,15 @@ import {
   fetchCurrenciesAndCrypto,
 } from "./pipelines/currencies-crypto";
 import {
+  extractDepthSide,
   fetchIndianEquities,
   formatUpstoxErrors,
   isUpstoxConfigured,
+  observedAtMs,
+  parseLastTradeTimeMs,
   UpstoxConfigurationError,
 } from "./pipelines/indian-equities";
+import { isEquityRow } from "./upstox-universe";
 import {
   PROVIDER_GLOBAL,
   discoverIndexInstruments,
@@ -343,9 +347,79 @@ describe("Upstox configuration gating", () => {
     const reliance = points.find((p) => p.instrument === "NSE_EQ|INE002A01018");
     expect(reliance?.quote.value).toBe(2500);
     expect(reliance?.quote.currency).toBe("INR");
+    expect(reliance?.quote.symbol).toBe("RELIANCE");
+    expect(reliance?.quote.name).toBe("Reliance Industries");
     expect(reliance?.delay).toBe("realtime");
     // Only the v2 market-quote path is used; the algo-trading token never leaks.
     expect(seen.every((u) => u.includes("/v2/market-quote/quotes"))).toBe(true);
+  });
+
+  it("strictly filters equities and excludes commercial papers like 1020CCSP27", () => {
+    // Valid equities
+    expect(
+      isEquityRow({
+        segment: "NSE_EQ",
+        instrument_type: "EQ",
+        tradingsymbol: "RELIANCE",
+        name: "Reliance Industries Limited",
+        instrument_key: "NSE_EQ|INE002A01018",
+      }),
+    ).toBe(true);
+
+    expect(
+      isEquityRow({
+        segment: "NSE_EQ",
+        instrument_type: "BE",
+        tradingsymbol: "TATASTEEL",
+        name: "Tata Steel Limited",
+      }),
+    ).toBe(true);
+
+    // Debt instruments / commercial papers starting with coupon rate (like 1020CCSP27)
+    expect(
+      isEquityRow({
+        segment: "NSE_EQ",
+        instrument_type: "CP",
+        tradingsymbol: "1020CCSP27",
+        name: "Clix Capital Services CP 2027",
+        instrument_key: "NSE_EQ|INE523H14013",
+      }),
+    ).toBe(false);
+
+    // Instrument with key NSE_EQ| but non-equity type NCD/BOND
+    expect(
+      isEquityRow({
+        segment: "NSE_EQ",
+        instrument_type: "NCD",
+        tradingsymbol: "814PFC26",
+        name: "Power Finance Corp NCD",
+        instrument_key: "NSE_EQ|INE134E07010",
+      }),
+    ).toBe(false);
+
+    // All debt, commercial paper, state loan, and NCD ticker codes must be strictly rejected
+    const invalidTickers = [
+      "1020CCSP27",
+      "686RJ52",
+      "743PN48",
+      "746RJ51",
+      "754PN34",
+      "762PN38",
+      "852MFL31",
+      "878MFL27",
+      "885MFL28",
+      "990CCSP27",
+    ];
+    for (const sym of invalidTickers) {
+      expect(
+        isEquityRow({
+          segment: "NSE_EQ",
+          instrument_type: "EQ",
+          tradingsymbol: sym,
+          instrument_key: `NSE_EQ|${sym}`,
+        }),
+      ).toBe(false);
+    }
   });
 
   it("throws not-configured when the analytics token is missing", async () => {
@@ -380,6 +454,133 @@ describe("Upstox configuration gating", () => {
       MarketDataConfigurationError,
     );
     expect(fetch.mock.calls.length).toBe(0);
+  });
+
+  it("extractDepthSide filters dummy zero levels and handles empty order book", () => {
+    const dummyZeros = [
+      { quantity: 0, price: 0, orders: 0 },
+      { quantity: 0, price: 0, orders: 0 },
+      { quantity: 0, price: 0, orders: 0 },
+      { quantity: 0, price: 0, orders: 0 },
+      { quantity: 0, price: 0, orders: 0 },
+    ];
+    const buyResult = extractDepthSide(dummyZeros, "buy");
+    const sellResult = extractDepthSide(dummyZeros, "sell");
+    expect(buyResult).toEqual([]);
+    expect(sellResult).toEqual([]);
+  });
+
+  it("extractDepthSide maps alternate field keys, coerces string numbers, and sorts correctly", () => {
+    const rawBids = [
+      { qty: "50", price: "2400.00", orders: "2" },
+      { size: 100, rate: 2420.5, count: 5 },
+      { quantity: 0, price: 0, orders: 0 }, // dummy slot
+      { q: 25, p: 2390.0, ord: 1 },
+    ];
+    const bids = extractDepthSide(rawBids, "buy");
+    expect(bids).toHaveLength(3);
+    // Highest price first for bids
+    expect(bids[0]).toEqual({ quantity: 100, price: 2420.5, orders: 5 });
+    expect(bids[1]).toEqual({ quantity: 50, price: 2400, orders: 2 });
+    expect(bids[2]).toEqual({ quantity: 25, price: 2390, orders: 1 });
+
+    const rawAsks = [
+      { quantity: 30, price: 2425.0, orders: 1 },
+      { qty: 15, rate: 2415.5, count: 2 },
+      { quantity: 0, price: 0, orders: 0 }, // dummy slot
+      { size: 80, p: 2430.0, num_orders: 4 },
+    ];
+    const asks = extractDepthSide(rawAsks, "sell");
+    expect(asks).toHaveLength(3);
+    // Lowest price first for asks
+    expect(asks[0]).toEqual({ quantity: 15, price: 2415.5, orders: 2 });
+    expect(asks[1]).toEqual({ quantity: 30, price: 2425.0, orders: 1 });
+    expect(asks[2]).toEqual({ quantity: 80, price: 2430.0, orders: 4 });
+  });
+
+  it("fetchIndianEquities maps real market depth and falls back to depth quantity sums", async () => {
+    vi.stubEnv("UPSTOX_ANALYTICS_TOKEN", "valid-test-token");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        jsonResponse({
+          status: "success",
+          data: {
+            "NSE_EQ:RELIANCE": {
+              instrument_token: "NSE_EQ|INE002A01018",
+              symbol: "RELIANCE",
+              last_price: 2500,
+              depth: {
+                buy: [
+                  { quantity: 100, price: 2499.5, orders: 5 },
+                  { quantity: 0, price: 0, orders: 0 },
+                ],
+                sell: [
+                  { quantity: 80, price: 2501.0, orders: 3 },
+                  { quantity: 0, price: 0, orders: 0 },
+                ],
+              },
+            },
+          },
+        }),
+      ),
+    );
+
+    const points = await fetchIndianEquities();
+    const reliance = points.find((p) => p.quote.symbol === "RELIANCE");
+    expect(reliance).toBeDefined();
+    expect(reliance?.quote.depth).toBeDefined();
+    expect(reliance?.quote.depth?.buy).toEqual([
+      { quantity: 100, price: 2499.5, orders: 5 },
+    ]);
+    expect(reliance?.quote.depth?.sell).toEqual([
+      { quantity: 80, price: 2501.0, orders: 3 },
+    ]);
+    // Fallback to sum of active depth quantities when total_buy_quantity is null
+    expect(reliance?.quote.totalBuyQuantity).toBe(100);
+    expect(reliance?.quote.totalSellQuantity).toBe(80);
+  });
+
+  it("preserves exchange last_trade_time (3:29:52 PM) while observedAtMs updates to latest EOD fetch time", async () => {
+    vi.stubEnv("UPSTOX_ANALYTICS_TOKEN", "valid-test-token");
+
+    const marketCloseTradeTime = 1730109592000; // 3:29:52 PM IST
+    const eodFetchTime = 1730140000000; // Later at EOD (e.g. 11:56:40 PM IST)
+
+    // Unit test helper functions directly
+    expect(parseLastTradeTimeMs({ last_trade_time: marketCloseTradeTime })).toBe(marketCloseTradeTime);
+    expect(parseLastTradeTimeMs({ last_traded_time: String(marketCloseTradeTime) })).toBe(marketCloseTradeTime);
+    expect(parseLastTradeTimeMs({})).toBeNull();
+
+    // observedAtMs must not be pinned to last_trade_time
+    expect(observedAtMs({ last_trade_time: marketCloseTradeTime }, eodFetchTime)).toBe(eodFetchTime);
+
+    // End-to-end quote pipeline mapping
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        jsonResponse({
+          status: "success",
+          data: {
+            "NSE_EQ:RELIANCE": {
+              instrument_token: "NSE_EQ|INE002A01018",
+              symbol: "RELIANCE",
+              last_price: 2500,
+              last_trade_time: marketCloseTradeTime,
+            },
+          },
+        }),
+      ),
+    );
+
+    const nowBefore = Date.now();
+    const points = await fetchIndianEquities();
+    const reliance = points.find((p) => p.quote.symbol === "RELIANCE");
+    expect(reliance).toBeDefined();
+    // lastTradeTimeMs must reflect the exact exchange trade time (3:29:52 PM IST)
+    expect(reliance?.quote.lastTradeTimeMs).toBe(marketCloseTradeTime);
+    // observedAtMs must reflect the current fetch time, NOT 3:29:52 PM
+    expect(reliance?.quote.observedAtMs).toBeGreaterThanOrEqual(nowBefore);
   });
 });
 

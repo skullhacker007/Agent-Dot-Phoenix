@@ -13,6 +13,8 @@ export type InstrumentConfig = {
   instrument: string;
   label: string;
   group: string;
+  /** Clean trading ticker symbol (e.g. RELIANCE, TCS, INFY). */
+  symbol?: string;
 };
 
 /**

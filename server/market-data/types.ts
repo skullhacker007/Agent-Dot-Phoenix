@@ -68,12 +68,14 @@ export const quoteSchema = z.object({
   totalSellQuantity: z.number().finite().nullable().optional(),
   lowerCircuit: z.number().finite().nullable().optional(),
   upperCircuit: z.number().finite().nullable().optional(),
+  /** Provider-reported last trade execution timestamp on exchange, in epoch ms. */
+  lastTradeTimeMs: z.number().int().nonnegative().nullable().optional(),
   depth: z
     .object({
-      buy: z.array(marketDepthItemSchema).optional(),
-      sell: z.array(marketDepthItemSchema).optional(),
+      buy: z.array(marketDepthItemSchema).nullish(),
+      sell: z.array(marketDepthItemSchema).nullish(),
     })
-    .optional(),
+    .nullish(),
 });
 export type MarketQuote = z.infer<typeof quoteSchema>;
 

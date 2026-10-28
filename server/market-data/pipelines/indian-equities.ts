@@ -82,50 +82,72 @@ export function isUpstoxConfigured(): boolean {
   return readUpstoxToken() !== null;
 }
 
-const upstoxDepthItemSchema = z.object({
-  quantity: z.number().nullable().optional(),
-  qty: z.number().nullable().optional(),
-  price: z.number().nullable().optional(),
-  orders: z.number().nullable().optional(),
-});
+const upstoxDepthItemSchema = z
+  .object({
+    quantity: z.coerce.number().nullish(),
+    qty: z.coerce.number().nullish(),
+    size: z.coerce.number().nullish(),
+    q: z.coerce.number().nullish(),
+    price: z.coerce.number().nullish(),
+    p: z.coerce.number().nullish(),
+    rate: z.coerce.number().nullish(),
+    orders: z.coerce.number().nullish(),
+    order: z.coerce.number().nullish(),
+    ord: z.coerce.number().nullish(),
+    count: z.coerce.number().nullish(),
+    num_orders: z.coerce.number().nullish(),
+    numberOfOrders: z.coerce.number().nullish(),
+  })
+  .passthrough();
 
-const upstoxOhlcSchema = z.object({
-  open: z.number().nullable().optional(),
-  high: z.number().nullable().optional(),
-  low: z.number().nullable().optional(),
-  close: z.number().nullable().optional(),
-});
+const upstoxDepthGroupSchema = z
+  .object({
+    buy: z.array(upstoxDepthItemSchema).nullish(),
+    bids: z.array(upstoxDepthItemSchema).nullish(),
+    sell: z.array(upstoxDepthItemSchema).nullish(),
+    asks: z.array(upstoxDepthItemSchema).nullish(),
+  })
+  .passthrough();
 
-const upstoxDataSchema = z.object({
-  instrument_token: z.string().optional(),
-  instrument_key: z.string().optional(),
-  symbol: z.string().optional(),
-  last_price: z.number().nullable().optional(),
-  cp: z.number().nullable().optional(),
-  net_change: z.number().nullable().optional(),
-  previous_close: z.number().nullable().optional(),
-  ohlc: upstoxOhlcSchema.optional(),
-  volume: z.number().nullable().optional(),
-  average_price: z.number().nullable().optional(),
-  avg_price: z.number().nullable().optional(),
-  total_buy_quantity: z.number().nullable().optional(),
-  total_buy_qty: z.number().nullable().optional(),
-  total_sell_quantity: z.number().nullable().optional(),
-  total_sell_qty: z.number().nullable().optional(),
-  lower_circuit_limit: z.number().nullable().optional(),
-  lower_circuit: z.number().nullable().optional(),
-  upper_circuit_limit: z.number().nullable().optional(),
-  upper_circuit: z.number().nullable().optional(),
-  last_trade_time: z.union([z.number(), z.string()]).nullable().optional(),
-  last_traded_time: z.union([z.number(), z.string()]).nullable().optional(),
-  timestamp: z.string().nullable().optional(),
-  depth: z
-    .object({
-      buy: z.array(upstoxDepthItemSchema).optional(),
-      sell: z.array(upstoxDepthItemSchema).optional(),
-    })
-    .optional(),
-});
+const upstoxOhlcSchema = z
+  .object({
+    open: z.coerce.number().nullish(),
+    high: z.coerce.number().nullish(),
+    low: z.coerce.number().nullish(),
+    close: z.coerce.number().nullish(),
+  })
+  .passthrough();
+
+const upstoxDataSchema = z
+  .object({
+    instrument_token: z.string().nullish(),
+    instrument_key: z.string().nullish(),
+    symbol: z.string().nullish(),
+    last_price: z.coerce.number().nullish(),
+    cp: z.coerce.number().nullish(),
+    net_change: z.coerce.number().nullish(),
+    previous_close: z.coerce.number().nullish(),
+    ohlc: upstoxOhlcSchema.nullish(),
+    volume: z.coerce.number().nullish(),
+    average_price: z.coerce.number().nullish(),
+    avg_price: z.coerce.number().nullish(),
+    total_buy_quantity: z.coerce.number().nullish(),
+    total_buy_qty: z.coerce.number().nullish(),
+    total_sell_quantity: z.coerce.number().nullish(),
+    total_sell_qty: z.coerce.number().nullish(),
+    lower_circuit_limit: z.coerce.number().nullish(),
+    lower_circuit: z.coerce.number().nullish(),
+    upper_circuit_limit: z.coerce.number().nullish(),
+    upper_circuit: z.coerce.number().nullish(),
+    last_trade_time: z.union([z.number(), z.string()]).nullish(),
+    last_traded_time: z.union([z.number(), z.string()]).nullish(),
+    timestamp: z.string().nullish(),
+    depth: upstoxDepthGroupSchema.nullish(),
+    market_depth: upstoxDepthGroupSchema.nullish(),
+    bids: z.array(upstoxDepthItemSchema).nullish(),
+    asks: z.array(upstoxDepthItemSchema).nullish(),
+  })
+  .passthrough();
 
 /**
  * Documented error envelope:
@@ -163,18 +185,99 @@ const upstoxQuoteResponseSchema = z.object({
   errors: z.array(upstoxErrorItemSchema).nullish(),
 });
 
-function observedAtMs(data: z.infer<typeof upstoxDataSchema>): number {
+export function parseLastTradeTimeMs(
+  data: z.infer<typeof upstoxDataSchema>,
+): number | null {
   const rawTradeTime = data.last_trade_time ?? data.last_traded_time;
   if (typeof rawTradeTime === "number" && rawTradeTime > 0) return rawTradeTime;
   if (typeof rawTradeTime === "string") {
     const num = Number(rawTradeTime);
     if (!Number.isNaN(num) && num > 0) return num;
+    const parsed = Date.parse(rawTradeTime);
+    if (!Number.isNaN(parsed) && parsed > 0) return parsed;
   }
+  return null;
+}
+
+export function observedAtMs(
+  data: z.infer<typeof upstoxDataSchema>,
+  fetchTimestampMs = Date.now(),
+): number {
   if (data.timestamp) {
-    const ms = Date.parse(data.timestamp);
-    if (!Number.isNaN(ms)) return ms;
+    const num = Number(data.timestamp);
+    if (!Number.isNaN(num) && num > 0) return num;
+    const parsed = Date.parse(data.timestamp);
+    if (!Number.isNaN(parsed) && parsed > 0) return parsed;
   }
-  return Date.now();
+  return fetchTimestampMs;
+}
+
+export interface NormalizedDepthItem {
+  quantity: number | null;
+  price: number | null;
+  orders: number | null;
+}
+
+/**
+ * Extracts and normalizes depth levels from Upstox quote response.
+ * - Extracts quantity, price, and orders handling alternate property names and coercion.
+ * - Filters out dummy unfilled 0-slots (Upstox pads empty/unfilled levels with price=0 & quantity=0).
+ * - Sorts bids descending by price (highest buyer first).
+ * - Sorts asks ascending by price (lowest seller first).
+ * - Limits to top 5 levels.
+ */
+export function extractDepthSide(
+  rawList: unknown[] | null | undefined,
+  side: "buy" | "sell",
+): NormalizedDepthItem[] {
+  if (!Array.isArray(rawList) || rawList.length === 0) return [];
+
+  const items: NormalizedDepthItem[] = [];
+
+  for (const raw of rawList) {
+    if (!raw || typeof raw !== "object") continue;
+    const item = raw as Record<string, unknown>;
+
+    const toNum = (val: unknown): number | null => {
+      if (val === null || val === undefined) return null;
+      const n = typeof val === "number" ? val : Number(val);
+      return Number.isFinite(n) ? n : null;
+    };
+
+    const quantity = toNum(item.quantity ?? item.qty ?? item.size ?? item.q);
+    const price = toNum(item.price ?? item.p ?? item.rate);
+    const orders = toNum(
+      item.orders ??
+        item.order ??
+        item.ord ??
+        item.count ??
+        item.num_orders ??
+        item.numberOfOrders,
+    );
+
+    // If both price and quantity are 0 or missing/negative, it is an empty dummy level
+    const hasValidPrice = price !== null && price > 0;
+    const hasValidQty = quantity !== null && quantity > 0;
+
+    if (!hasValidPrice && !hasValidQty) {
+      continue;
+    }
+
+    items.push({
+      quantity: hasValidQty ? quantity : (quantity ?? null),
+      price: hasValidPrice ? price : (price ?? null),
+      orders: orders !== null && orders > 0 ? Math.floor(orders) : null,
+    });
+  }
+
+  // Sort: Bids (buyers) descending by price, Asks (sellers) ascending by price
+  items.sort((a, b) => {
+    const pA = a.price ?? 0;
+    const pB = b.price ?? 0;
+    return side === "buy" ? pB - pA : pA - pB;
+  });
+
+  return items.slice(0, 5);
 }
 
 /**
@@ -185,22 +288,42 @@ function observedAtMs(data: z.infer<typeof upstoxDataSchema>): number {
 function findQuoteInMap(
   dataMap: Record<string, unknown>,
   instrumentKey: string,
-): z.infer<typeof upstoxDataSchema> | null {
+  symbolHint?: string,
+): { data: z.infer<typeof upstoxDataSchema>; matchedKey: string } | null {
   // 1. Direct colon-key match (e.g. "NSE_EQ:RELIANCE")
   const colonKey = instrumentKey.replace("|", ":");
   if (dataMap[colonKey]) {
     const parsed = upstoxDataSchema.safeParse(dataMap[colonKey]);
-    if (parsed.success) return parsed.data;
+    if (parsed.success) return { data: parsed.data, matchedKey: colonKey };
   }
 
   // 2. Direct pipe-key match
   if (dataMap[instrumentKey]) {
     const parsed = upstoxDataSchema.safeParse(dataMap[instrumentKey]);
-    if (parsed.success) return parsed.data;
+    if (parsed.success) return { data: parsed.data, matchedKey: instrumentKey };
   }
 
-  // 3. Match across entries by instrument_key, instrument_token or symbol
-  const symbolPart = instrumentKey.split("|").pop()?.toUpperCase();
+  // 3. Match by symbolHint with prefix awareness (e.g. "NSE_EQ:RELIANCE", "NSE_FO:NIFTY26APRFUT")
+  if (symbolHint) {
+    const prefix = instrumentKey.includes("|")
+      ? instrumentKey.split("|")[0]
+      : instrumentKey.includes(":")
+        ? instrumentKey.split(":")[0]
+        : "NSE_EQ";
+    const symbolKeyWithPrefix = `${prefix}:${symbolHint.toUpperCase()}`;
+    if (dataMap[symbolKeyWithPrefix]) {
+      const parsed = upstoxDataSchema.safeParse(dataMap[symbolKeyWithPrefix]);
+      if (parsed.success) return { data: parsed.data, matchedKey: symbolKeyWithPrefix };
+    }
+    const defaultSymbolKey = `NSE_EQ:${symbolHint.toUpperCase()}`;
+    if (dataMap[defaultSymbolKey]) {
+      const parsed = upstoxDataSchema.safeParse(dataMap[defaultSymbolKey]);
+      if (parsed.success) return { data: parsed.data, matchedKey: defaultSymbolKey };
+    }
+  }
+
+  // 4. Match across entries by instrument_key, instrument_token or symbol
+  const symbolPart = symbolHint?.toUpperCase() || instrumentKey.split("|").pop()?.toUpperCase();
   for (const [key, val] of Object.entries(dataMap)) {
     const parsed = upstoxDataSchema.safeParse(val);
     if (parsed.success) {
@@ -210,10 +333,10 @@ function findQuoteInMap(
         token?.replace(":", "|") === instrumentKey ||
         token?.replace("|", ":") === colonKey
       ) {
-        return parsed.data;
+        return { data: parsed.data, matchedKey: key };
       }
       if (symbolPart && (parsed.data.symbol?.toUpperCase() === symbolPart || key.split(":").pop()?.toUpperCase() === symbolPart)) {
-        return parsed.data;
+        return { data: parsed.data, matchedKey: key };
       }
     }
   }
@@ -333,8 +456,9 @@ export async function fetchIndianEquities(
   const points: MarketDataPoint[] = [];
 
   for (const config of instruments) {
-    const data = findQuoteInMap(dataMap, config.instrument);
-    if (!data) continue;
+    const matched = findQuoteInMap(dataMap, config.instrument, config.symbol);
+    if (!matched) continue;
+    const { data, matchedKey } = matched;
 
     const lastPrice = data.last_price ?? null;
     const previousClose = data.previous_close ?? data.ohlc?.close ?? null;
@@ -349,20 +473,88 @@ export async function fetchIndianEquities(
           ? (netChange / previousClose) * 100
           : null;
 
-    const sym = data.symbol || config.instrument.split("|").at(-1) || config.instrument;
+    // Resolve clean trading symbol:
+    // 1. data.symbol (from response)
+    // 2. config.symbol (e.g. RELIANCE, TCS)
+    // 3. Extracted from matchedKey (e.g. "NSE_EQ:RELIANCE" -> "RELIANCE")
+    // 4. Fallback to instrument token or label, strictly avoiding raw ISIN numbers
+    const keySymbol = matchedKey.includes(":") ? matchedKey.split(":").pop() : undefined;
+    let sym = data.symbol?.trim() || config.symbol?.trim() || (keySymbol && !/^IN[A-Z0-9]{10}$/i.test(keySymbol) ? keySymbol : undefined);
+    if (!sym || sym === "NA") {
+      const part = config.instrument.split("|").at(-1)?.trim();
+      if (part && !/^IN[A-Z0-9]{10}$/i.test(part)) {
+        sym = part;
+      } else {
+        sym = config.label;
+      }
+    }
+
+    // Strict defense-in-depth: if an equity instrument has a numeric debt/coupon symbol (e.g. 1020CCSP27, 686RJ52)
+    // or contains SDL/NCD/paper indicators, exclude it from equities!
+    if (
+      config.group === "NSE equities" &&
+      (/^\d/.test(sym) ||
+        /^\d/.test(config.label) ||
+        /\b(?:SDL|NCD|CP|DEBENTURE|SERIES|SR\s*\d+)\b/i.test(config.label))
+    ) {
+      continue;
+    }
+
+    const rawBuyDepth =
+      data.depth?.buy ??
+      data.depth?.bids ??
+      data.market_depth?.buy ??
+      data.market_depth?.bids ??
+      data.bids;
+    const rawSellDepth =
+      data.depth?.sell ??
+      data.depth?.asks ??
+      data.market_depth?.sell ??
+      data.market_depth?.asks ??
+      data.asks;
+
+    const normalizedBuy = extractDepthSide(rawBuyDepth, "buy");
+    const normalizedSell = extractDepthSide(rawSellDepth, "sell");
+
+    const sumBuyQty = normalizedBuy.reduce((acc, it) => acc + (it.quantity ?? 0), 0);
+    const sumSellQty = normalizedSell.reduce((acc, it) => acc + (it.quantity ?? 0), 0);
+
+    const totalBuyQuantity =
+      typeof data.total_buy_quantity === "number" && data.total_buy_quantity > 0
+        ? data.total_buy_quantity
+        : typeof data.total_buy_qty === "number" && data.total_buy_qty > 0
+          ? data.total_buy_qty
+          : sumBuyQty > 0
+            ? sumBuyQty
+            : null;
+
+    const totalSellQuantity =
+      typeof data.total_sell_quantity === "number" && data.total_sell_quantity > 0
+        ? data.total_sell_quantity
+        : typeof data.total_sell_qty === "number" && data.total_sell_qty > 0
+          ? data.total_sell_qty
+          : sumSellQty > 0
+            ? sumSellQty
+            : null;
+
+    const hasDepth =
+      Boolean(rawBuyDepth || rawSellDepth) ||
+      normalizedBuy.length > 0 ||
+      normalizedSell.length > 0;
 
     points.push({
       instrument: config.instrument,
       label: config.label,
       group: config.group,
       quote: {
-        symbol: sym === "NA" ? config.label : sym,
+        symbol: sym,
         name: config.label,
         value: typeof lastPrice === "number" ? lastPrice : null,
         currency: "INR",
         change: typeof netChange === "number" ? netChange : null,
         changePercent,
         observedAtMs: observedAtMs(data),
+        lastTradeTimeMs: parseLastTradeTimeMs(data),
         previousClose: typeof previousClose === "number" ? previousClose : null,
         open: data.ohlc?.open ?? null,
         high: data.ohlc?.high ?? null,
@@ -370,22 +562,14 @@ export async function fetchIndianEquities(
         close: data.ohlc?.close ?? null,
         volume: data.volume ?? null,
         averagePrice: data.average_price ?? data.avg_price ?? null,
-        totalBuyQuantity: data.total_buy_quantity ?? data.total_buy_qty ?? null,
-        totalSellQuantity: data.total_sell_quantity ?? data.total_sell_qty ?? null,
+        totalBuyQuantity,
+        totalSellQuantity,
         lowerCircuit: data.lower_circuit_limit ?? data.lower_circuit ?? null,
         upperCircuit: data.upper_circuit_limit ?? data.upper_circuit ?? null,
-        depth: data.depth
+        depth: hasDepth
           ? {
-              buy: data.depth.buy?.map((item) => ({
-                quantity: item.quantity ?? item.qty ?? null,
-                price: item.price ?? null,
-                orders: item.orders ?? null,
-              })),
-              sell: data.depth.sell?.map((item) => ({
-                quantity: item.quantity ?? item.qty ?? null,
-                price: item.price ?? null,
-                orders: item.orders ?? null,
-              })),
+              buy: normalizedBuy,
+              sell: normalizedSell,
             }
           : undefined,
       },

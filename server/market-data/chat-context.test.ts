@@ -127,4 +127,44 @@ describe("buildVisionMarketContext", () => {
     expect(context).toContain("TATAMOTORS");
     expect(context).toContain("₹985.40");
   });
+
+  it("correctly classifies bank equities under stocks rather than benchmark indices", () => {
+    const context = buildVisionMarketContext({
+      compactPoints: [
+        {
+          symbol: "HDFCBANK",
+          label: "HDFC Bank",
+          group: "NSE equities",
+          value: 1520.4,
+          change: 15.2,
+          changePercent: 1.01,
+          volume: 3500000,
+        },
+        {
+          symbol: "ICICIBANK",
+          label: "ICICI Bank",
+          group: "NSE equities",
+          value: 1105.0,
+          change: -5.0,
+          changePercent: -0.45,
+          volume: 2100000,
+        },
+        {
+          symbol: "NIFTY BANK",
+          label: "Nifty Bank",
+          group: "NSE indices",
+          value: 48500.0,
+          change: 250.0,
+          changePercent: 0.52,
+        },
+      ],
+    });
+
+    expect(context).toContain("Stocks: 2 | Indices: 1");
+    expect(context).toContain("COMPLETE STOCKS DIRECTORY (Total: 2):");
+    expect(context).toContain("HDFC Bank (HDFCBANK)");
+    expect(context).toContain("ICICI Bank (ICICIBANK)");
+    expect(context).toContain("BENCHMARK INDICES LIST (Total: 1):");
+    expect(context).toContain("Nifty Bank");
+  });
 });

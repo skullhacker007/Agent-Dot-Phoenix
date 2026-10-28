@@ -2,17 +2,17 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { FormEvent, ReactNode } from "react";
-import { setAgentActivity } from "@/lib/agent-activity";
-import type { TeamId } from "@/lib/agent-monitoring";
+import { setAgentActivity } from "../../lib/agent-activity";
+import type { TeamId } from "../../lib/agent-monitoring";
 import "./AgentChat.css";
 
-type ChatMessage = {
+export type ChatMessage = {
   id: number;
   role: "user" | "assistant";
   content: string;
 };
 
-type AgentChatProps = {
+export type AgentChatProps = {
   teamId: TeamId;
   teamName: string;
   teamRole: string;
@@ -20,6 +20,33 @@ type AgentChatProps = {
   loading: boolean;
   marketContext?: unknown;
 };
+
+export function buildConversationPayload(
+  existingMessages: ChatMessage[],
+  newUserMessage: ChatMessage,
+): Array<{ role: "user" | "assistant"; content: string }> {
+  const conversation: Array<{ role: "user" | "assistant"; content: string }> = [];
+
+  for (const message of [...existingMessages, newUserMessage]) {
+    const trimmed = message.content.trim();
+    if (!trimmed) continue;
+
+    const previous = conversation[conversation.length - 1];
+    if (!previous) {
+      if (message.role === "user") {
+        conversation.push({ role: "user", content: trimmed });
+      }
+    } else if (previous.role !== message.role) {
+      conversation.push({ role: message.role, content: trimmed });
+    }
+  }
+
+  const recent = conversation.slice(-20);
+  if (recent[0]?.role === "assistant") {
+    recent.shift();
+  }
+  return recent;
+}
 
 function getErrorMessage(payload: unknown, teamName: string) {
   if (
@@ -135,27 +162,9 @@ export default function AgentChat({
       role: "assistant",
       content: "",
     };
-    const conversation: Array<Pick<ChatMessage, "role" | "content">> = [];
-    for (const { role, content: messageContent } of [
-      ...messages,
-      userMessage,
-    ]) {
-      if (!messageContent.trim()) continue;
-      const previous = conversation.at(-1);
-      if (!previous && role === "assistant") continue;
-      if (previous?.role === role) {
-        previous.content =
-          role === "user"
-            ? `${previous.content}\n${messageContent}`
-            : `${previous.content}${messageContent}`;
-      } else {
-        conversation.push({ role, content: messageContent });
-      }
-    }
-    const recentConversation = conversation.slice(-20);
-    if (recentConversation[0]?.role === "assistant") {
-      recentConversation.shift();
-    }
+
+    const recentConversation = buildConversationPayload(messages, userMessage);
+
     const controller = new AbortController();
     activeRequest.current = controller;
     const activity = {
@@ -320,6 +329,17 @@ export default function AgentChat({
     }
   }
 
+  function handleDraftKeyDown(event: React.KeyboardEvent<HTMLTextAreaElement>) {
+    if (
+      event.key === "Enter" &&
+      !event.shiftKey &&
+      !event.nativeEvent.isComposing
+    ) {
+      event.preventDefault();
+      event.currentTarget.form?.requestSubmit();
+    }
+  }
+
   return (
     <aside className={`agent-chat-widget ${open ? "is-open" : ""}`}>
       {open ? (
@@ -383,21 +403,16 @@ export default function AgentChat({
             <textarea
               id="agent-chat-input"
               maxLength={4000}
+              disabled={busy || !assignedModelAvailable}
               onChange={(event) => setDraft(event.target.value)}
-              onKeyDown={(event) => {
-                if (
-                  event.key === "Enter" &&
-                  !event.shiftKey &&
-                  !event.nativeEvent.isComposing
-                ) {
-                  event.preventDefault();
-                  event.currentTarget.form?.requestSubmit();
-                }
-              }}
-              placeholder={`Message ${teamName} about ${teamRole.toLowerCase()}...`}
+              onKeyDown={handleDraftKeyDown}
+              placeholder={
+                assignedModelAvailable
+                  ? `Message ${teamName} about ${teamRole.toLowerCase()}...`
+                  : "Assigned model unavailable"
+              }
               rows={2}
               value={draft}
-              disabled={busy}
             />
             <div className="agent-chat-form-footer">
               <span>

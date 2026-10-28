@@ -144,7 +144,7 @@ export default function AgentTestPage() {
           </h1>
           <p style={{ color: "#94a0b2", margin: "10px 0 0", fontSize: 15 }}>
             Each available model is tested against live inference with a
-            1-second response limit.
+            {` ${(MODEL_RESPONSE_TIME_LIMIT_MS / 1000).toFixed(0)}`}-second response limit.
           </p>
         </div>
 
@@ -205,7 +205,7 @@ export default function AgentTestPage() {
             >
               <thead>
                 <tr style={{ background: "rgba(255, 255, 255, 0.025)" }}>
-                  {["Model", "Response time", "Status"].map((heading) => (
+                  {["Model", "Response time", "Status", "Details"].map((heading) => (
                     <th
                       key={heading}
                       scope="col"
@@ -225,7 +225,7 @@ export default function AgentTestPage() {
                 </tr>
               </thead>
               <tbody>
-                {sortedResults.map(({ model, responseTime, status }) => {
+                {sortedResults.map(({ model, responseTime, status, statusCode, errorMessage }) => {
                   const statusColor =
                     status === "WORKING"
                       ? "#55d6a0"
@@ -256,9 +256,11 @@ export default function AgentTestPage() {
                       >
                         {responseTime === null
                           ? "—"
-                          : responseTime > MODEL_RESPONSE_TIME_LIMIT_MS
-                            ? "> 1,000 ms"
-                            : `${responseTime.toFixed(1)} ms`}
+                          : status === "WORKING"
+                            ? `${responseTime.toFixed(1)} ms`
+                            : responseTime > MODEL_RESPONSE_TIME_LIMIT_MS
+                              ? `> ${(MODEL_RESPONSE_TIME_LIMIT_MS / 1000).toFixed(0)}s`
+                              : `${responseTime.toFixed(1)} ms`}
                       </td>
                       <td
                         style={{
@@ -277,13 +279,28 @@ export default function AgentTestPage() {
                           {status}
                         </span>
                       </td>
+                      <td
+                        style={{
+                          padding: "17px 20px",
+                          color: status === "WORKING" ? "#55d6a0" : "#94a0b2",
+                          fontSize: 12,
+                          borderBottom: "1px solid #1b2431",
+                          maxWidth: 280,
+                        }}
+                      >
+                        {status === "WORKING"
+                          ? "200 OK (Stream verified)"
+                          : statusCode
+                            ? `HTTP ${statusCode}${errorMessage ? `: ${errorMessage}` : ""}`
+                            : errorMessage ?? "—"}
+                      </td>
                     </tr>
                   );
                 })}
                 {!loading && results.length === 0 && !error && (
                   <tr>
                     <td
-                      colSpan={3}
+                      colSpan={4}
                       style={{
                         padding: "28px 20px",
                         textAlign: "center",

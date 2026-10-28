@@ -105,23 +105,83 @@ function normalizePoints(
   clientPoints?: CompactMarketPoint[],
   serverSnapshot?: PipelineSnapshot | null,
 ): NormalizedPoint[] {
-  const map = new Map<string, NormalizedPoint>();
+  const points: NormalizedPoint[] = [];
+  const keyToIndex = new Map<string, number>();
 
-  // Ingest server points first (richer data)
+  function getKeyCandidates(sym?: string, label?: string, inst?: string): string[] {
+    const keys: string[] = [];
+    if (sym && sym.trim()) keys.push(sym.trim().toUpperCase());
+    if (label && label.trim()) keys.push(label.trim().toUpperCase());
+    if (inst && inst.trim()) keys.push(inst.trim().toUpperCase());
+    return keys;
+  }
+
+  function upsert(keys: string[], entry: NormalizedPoint) {
+    let targetIndex: number | undefined;
+    for (const k of keys) {
+      if (keyToIndex.has(k)) {
+        targetIndex = keyToIndex.get(k);
+        break;
+      }
+    }
+
+    if (targetIndex !== undefined) {
+      const existing = points[targetIndex];
+      points[targetIndex] = {
+        symbol: entry.symbol || existing.symbol,
+        label: entry.label || existing.label,
+        group: entry.group || existing.group,
+        value: entry.value !== null && entry.value !== undefined ? entry.value : existing.value,
+        change: entry.change !== null && entry.change !== undefined ? entry.change : existing.change,
+        changePercent:
+          entry.changePercent !== null && entry.changePercent !== undefined
+            ? entry.changePercent
+            : existing.changePercent,
+        volume: entry.volume !== null && entry.volume !== undefined ? entry.volume : existing.volume,
+        high: entry.high !== null && entry.high !== undefined ? entry.high : existing.high,
+        low: entry.low !== null && entry.low !== undefined ? entry.low : existing.low,
+        open: entry.open !== null && entry.open !== undefined ? entry.open : existing.open,
+        quote: entry.quote ?? existing.quote,
+        rawPoint: entry.rawPoint ?? existing.rawPoint,
+      };
+      for (const k of keys) {
+        keyToIndex.set(k, targetIndex);
+      }
+    } else {
+      const newIndex = points.length;
+      points.push(entry);
+      for (const k of keys) {
+        keyToIndex.set(k, newIndex);
+      }
+    }
+  }
+
+  const isDebtInstrument = (symbol?: string, label?: string) => {
+    if (symbol && /^\d/.test(symbol.trim())) return true;
+    if (label && /^\d/.test(label.trim())) return true;
+    const text = `${symbol || ""} ${label || ""}`;
+    return /\b(?:SDL|NCD|CP|DEBENTURE|SERIES|SR\s*\d+)\b/i.test(text);
+  };
+
+  // Ingest server snapshot points first (authoritative feed)
   if (serverSnapshot?.dataPoints) {
     for (const p of serverSnapshot.dataPoints) {
-      const sym = p.quote.symbol || p.label || p.instrument;
-      map.set(sym.toUpperCase(), {
-        symbol: p.quote.symbol,
-        label: p.label,
+      if (p.group === "NSE equities" && isDebtInstrument(p.quote?.symbol, p.label)) {
+        continue;
+      }
+      const keys = getKeyCandidates(p.quote?.symbol, p.label, p.instrument);
+      upsert(keys, {
+        symbol: p.quote?.symbol || p.label || p.instrument,
+        label: p.label || p.quote?.name || p.quote?.symbol || "",
         group: p.group,
-        value: p.quote.value,
-        change: p.quote.change,
-        changePercent: p.quote.changePercent,
-        volume: p.quote.volume ?? null,
-        high: p.quote.high ?? null,
-        low: p.quote.low ?? null,
-        open: p.quote.open ?? null,
+        value: p.quote?.value ?? null,
+        change: p.quote?.change ?? null,
+        changePercent: p.quote?.changePercent ?? null,
+        volume: p.quote?.volume ?? null,
+        high: p.quote?.high ?? null,
+        low: p.quote?.low ?? null,
+        open: p.quote?.open ?? null,
+        quote: p.quote,
         rawPoint: p,
       });
     }
@@ -130,30 +190,27 @@ function normalizePoints(
   // Overlay client points
   if (clientPoints) {
     for (const p of clientPoints) {
-      const sym = p.symbol || p.label || "";
-      if (!sym) continue;
-      const key = sym.toUpperCase();
-      const existing = map.get(key);
-      map.set(key, {
-        symbol: p.symbol || existing?.symbol || sym,
-        label: p.label || existing?.label || sym,
-        group: p.group || existing?.group || "Equities",
-        value: p.value !== undefined ? p.value : existing?.value ?? null,
-        change: p.change !== undefined ? p.change : existing?.change ?? null,
-        changePercent:
-          p.changePercent !== undefined
-            ? p.changePercent
-            : existing?.changePercent ?? null,
-        volume: p.volume !== undefined ? p.volume : existing?.volume ?? null,
-        high: p.high !== undefined ? p.high : existing?.high ?? null,
-        low: p.low !== undefined ? p.low : existing?.low ?? null,
-        open: p.open !== undefined ? p.open : existing?.open ?? null,
-        rawPoint: existing?.rawPoint,
+      if (p.group === "NSE equities" && isDebtInstrument(p.symbol, p.label)) {
+        continue;
+      }
+      const keys = getKeyCandidates(p.symbol, p.label);
+      if (keys.length === 0) continue;
+      upsert(keys, {
+        symbol: p.symbol || p.label || "",
+        label: p.label || p.symbol || "",
+        group: p.group || "NSE equities",
+        value: p.value !== undefined ? p.value : null,
+        change: p.change !== undefined ? p.change : null,
+        changePercent: p.changePercent !== undefined ? p.changePercent : null,
+        volume: p.volume !== undefined ? p.volume : null,
+        high: p.high !== undefined ? p.high : null,
+        low: p.low !== undefined ? p.low : null,
+        open: p.open !== undefined ? p.open : null,
       });
     }
   }
 
-  return Array.from(map.values());
+  return points;
 }
 
 export function buildVisionMarketContext(
@@ -177,17 +234,44 @@ export function buildVisionMarketContext(
   let unchangedCount = 0;
 
   for (const p of points) {
-    const g = p.group.toLowerCase();
-    const l = p.label.toLowerCase();
-    const s = p.symbol.toLowerCase();
+    const g = (p.group || "").toLowerCase();
+    const l = (p.label || "").toLowerCase();
+    const s = (p.symbol || "").toLowerCase();
 
-    if (g.includes("option") || l.includes("option") || l.includes(" ce") || l.includes(" pe") || s.includes(" ce") || s.includes(" pe")) {
+    if (
+      g.includes("option") ||
+      l.includes("option") ||
+      l.endsWith(" ce") ||
+      l.endsWith(" pe") ||
+      s.endsWith(" ce") ||
+      s.endsWith(" pe") ||
+      l.includes(" ce (call)") ||
+      l.includes(" pe (put)")
+    ) {
       options.push(p);
-    } else if (g.includes("commodit") || g.includes("mcx") || l.includes("gold") || l.includes("silver") || l.includes("crude") || l.includes("copper") || l.includes("gas")) {
+    } else if (
+      g.includes("commodit") ||
+      g.includes("mcx") ||
+      ["gold", "silver", "crude", "natural gas", "copper"].some(
+        (comm) => l.includes(comm) || s.includes(comm),
+      )
+    ) {
       commodities.push(p);
-    } else if (g.includes("future") || l.includes("future") || s.includes("fut")) {
+    } else if (
+      g.includes("future") ||
+      l.includes("futures") ||
+      s.endsWith("fut")
+    ) {
       futures.push(p);
-    } else if (g.includes("indic") || l.includes("nifty") || l.includes("sensex") || s.includes("nifty") || s.includes("bank")) {
+    } else if (
+      g.includes("indic") ||
+      l.startsWith("nifty ") ||
+      l.startsWith("sensex") ||
+      s === "nifty 50" ||
+      s === "nifty bank" ||
+      s === "banknifty" ||
+      s === "sensex"
+    ) {
       indices.push(p);
     } else {
       stocks.push(p);
@@ -363,13 +447,16 @@ export function buildVisionMarketContext(
     "3. **Stock & Option Best Buy Analysis (Top 3 Ranked)**: When asked 'best stock in nifty 50', 'best stock price to buy?', 'what stock to buy?', or for stock/option recommendations:\n" +
       "   - Separate top gainers from best buy candidates. Daily % gainers may be overextended, so evaluate real trade setups.\n" +
       "   - Rank the top 3 stocks using available price, volume, momentum, trend, and risk data from the live feed.\n" +
-      "   - Always include profit data (projected target price & profit % potential) alongside CMP, daily change, key reason, and risk in exactly one line per stock.\n" +
+      "   - Always include profit data (projected target price & profit % potential based on Day High resistance) alongside CMP, daily change, key reason, and risk (Day Low support) in exactly one line per stock.\n" +
       "   - Format:\n" +
-      "     1. **SYMBOL** (Company): CMP ₹X (+Y%) | Target/Profit: ₹Z (+P% upside) | Reason: [Volume surge / pullback to day low / relative strength] | Risk: [Support level / stop loss]\n" +
+      "     1. **SYMBOL** (Company): CMP ₹X (+Y%) | Day Range: [₹Low - ₹High] | Target/Profit: ₹Z (+P% upside to resistance) | Reason: [Volume surge / pullback to day low / relative strength] | Risk: [Support level / stop loss]\n" +
       "   - If indicators or technical data (like RSI or moving averages) are missing from the feed, say so directly rather than inventing them. Use actual fetched market data; never invent values.",
   );
   lines.push(
-    "4. **Never Disclaim Data Availability**: DO NOT say 'I don't have access to live data' or 'I can't see the list', because the full real-time data feed is provided right here.",
+    "4. **Accurate Asset Classification**: Commercial bank equities (e.g. HDFC Bank, ICICI Bank, State Bank of India, Kotak Mahindra Bank, Axis Bank) are individual STOCKS (Equities), NOT benchmark indices. Benchmark indices are Nifty 50, Nifty Bank, Nifty IT, etc.",
+  );
+  lines.push(
+    "5. **Never Disclaim Data Availability**: DO NOT say 'I don't have access to live data' or 'I can't see the list', because the full real-time data feed is provided right here.",
   );
 
   return lines.join("\n");
