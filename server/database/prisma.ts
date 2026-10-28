@@ -1,3 +1,5 @@
+// prisma related we no need to use , in future we can use for now no needed
+/*
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "@prisma/client";
 
@@ -19,3 +21,9 @@ export function getPrisma() {
 
   return globalForPrisma.prisma;
 }
+*/
+
+// Temporary fallback export so TypeScript and build checks pass without Prisma
+// export function getPrisma(): any {
+//   return null;
+// }
