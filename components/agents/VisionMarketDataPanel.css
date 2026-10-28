@@ -627,19 +627,56 @@
   width: 100%;
   font-size: 0.78125rem;
   border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.vision-depth-table th,
+.vision-depth-table td {
+  width: 33.333%;
+  padding: 0.375rem 0.5rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .vision-depth-table th {
   color: var(--muted, #94a0b2);
   font-size: 0.65625rem;
   font-weight: 600;
-  padding: 0.25rem 0.375rem;
   border-bottom: 0.0625rem solid color-mix(in srgb, currentColor 10%, transparent);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
-.vision-depth-table td {
-  padding: 0.375rem;
-  font-variant-numeric: tabular-nums;
+/* Buy Bids: Orders (left), Qty (right), Price (right) */
+.vision-depth-col.buy .vision-depth-table th:nth-child(1),
+.vision-depth-col.buy .vision-depth-table td:nth-child(1) {
+  text-align: left;
+}
+
+.vision-depth-col.buy .vision-depth-table th:nth-child(2),
+.vision-depth-col.buy .vision-depth-table td:nth-child(2) {
+  text-align: right;
+}
+
+.vision-depth-col.buy .vision-depth-table th:nth-child(3),
+.vision-depth-col.buy .vision-depth-table td:nth-child(3) {
+  text-align: right;
+}
+
+/* Sell Asks: Price (left), Qty (right), Orders (right) */
+.vision-depth-col.sell .vision-depth-table th:nth-child(1),
+.vision-depth-col.sell .vision-depth-table td:nth-child(1) {
+  text-align: left;
+}
+
+.vision-depth-col.sell .vision-depth-table th:nth-child(2),
+.vision-depth-col.sell .vision-depth-table td:nth-child(2) {
+  text-align: right;
+}
+
+.vision-depth-col.sell .vision-depth-table th:nth-child(3),
+.vision-depth-col.sell .vision-depth-table td:nth-child(3) {
+  text-align: right;
 }
 
 .vision-circuits-row {

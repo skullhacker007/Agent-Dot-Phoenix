@@ -45,13 +45,21 @@ function formatNumber(val: number | null | undefined): string {
   return val.toLocaleString("en-IN");
 }
 
-export function getIndianMarketStatus(): {
+export type MarketStatus = {
   isOpen: boolean;
   label: string;
   detail: string;
-} {
+};
+
+export const DEFAULT_MARKET_STATUS: MarketStatus = {
+  isOpen: false,
+  label: "Market Closed · EOD",
+  detail: "NSE/BSE Indian Market Data",
+};
+
+export function getIndianMarketStatus(referenceDate?: Date): MarketStatus {
   try {
-    const now = new Date();
+    const now = referenceDate ?? new Date();
     const kolkataStr = now.toLocaleString("en-US", { timeZone: "Asia/Kolkata" });
     const kolkataDate = new Date(kolkataStr);
     const day = kolkataDate.getDay(); // 0 is Sunday, 6 is Saturday
@@ -230,7 +238,12 @@ export default function VisionMarketDataPanel({
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [sortConfig, setSortConfig] = useState<SortConfig>(null);
 
-  const marketStatus = useMemo(() => getIndianMarketStatus(), [snapshot]);
+  const [marketStatus, setMarketStatus] =
+    useState<MarketStatus>(DEFAULT_MARKET_STATUS);
+
+  useEffect(() => {
+    setMarketStatus(getIndianMarketStatus());
+  }, [snapshot]);
 
   const controllerRef = useRef<AbortController | null>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
