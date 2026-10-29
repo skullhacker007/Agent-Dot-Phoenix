@@ -1,12 +1,52 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import { usePathname, useRouter } from "next/navigation";
 import {
   getVoiceCommandReply,
   resolveVoiceNavigationCommand,
 } from "@/lib/voice-navigation";
 import "./VoiceAssistant.css";
+
+const STORAGE_KEY = "voice_assistant_active";
+const ACTIVE_CHANGE_EVENT = "voice-assistant-active-change";
+
+function subscribeToVoiceActive(callback: () => void) {
+  if (typeof window === "undefined") return () => {};
+  window.addEventListener("storage", callback);
+  window.addEventListener(ACTIVE_CHANGE_EVENT, callback);
+  return () => {
+    window.removeEventListener("storage", callback);
+    window.removeEventListener(ACTIVE_CHANGE_EVENT, callback);
+  };
+}
+
+function getVoiceActiveSnapshot(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    return localStorage.getItem(STORAGE_KEY) === "true";
+  } catch {
+    return false;
+  }
+}
+
+function getVoiceActiveServerSnapshot(): boolean {
+  return false;
+}
+
+function setVoiceActive(active: boolean) {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(STORAGE_KEY, active ? "true" : "false");
+    window.dispatchEvent(new Event(ACTIVE_CHANGE_EVENT));
+  } catch {}
+}
 
 type VoiceStatus = "idle" | "listening" | "speaking";
 
@@ -45,13 +85,25 @@ export default function VoiceAssistant() {
   const pathname = usePathname();
   const router = useRouter();
   const compact = pathname !== "/";
+
+  const activated = useSyncExternalStore(
+    subscribeToVoiceActive,
+    getVoiceActiveSnapshot,
+    getVoiceActiveServerSnapshot,
+  );
+
   const [status, setStatus] = useState<VoiceStatus>("idle");
-  const [activated, setActivated] = useState(false);
   const [transcript, setTranscript] = useState("");
   const [message, setMessage] = useState("Activate voice assistance");
+
+  const pathnameRef = useRef(pathname);
+  useEffect(() => {
+    pathnameRef.current = pathname;
+  }, [pathname]);
+
   const recognitionRef = useRef<Recognition | null>(null);
   const statusRef = useRef<VoiceStatus>("idle");
-  const activatedRef = useRef(false);
+  const activatedRef = useRef(activated);
   const mountedRef = useRef(false);
   const routeHistoryRef = useRef<string[]>([]);
   const responsePendingRef = useRef(false);
@@ -59,6 +111,35 @@ export default function VoiceAssistant() {
   const finalResultTimerRef = useRef<number | null>(null);
   const finalTranscriptRef = useRef("");
   const startRecognitionRef = useRef<() => void>(() => {});
+  const runCommandRef = useRef<(spokenText: string) => void>(() => {});
+
+  useEffect(() => {
+    activatedRef.current = activated;
+    if (activated) {
+      startRecognitionRef.current();
+    } else {
+      if (finalResultTimerRef.current !== null) {
+        window.clearTimeout(finalResultTimerRef.current);
+        finalResultTimerRef.current = null;
+      }
+      finalTranscriptRef.current = "";
+      if (restartTimerRef.current !== null) {
+        window.clearTimeout(restartTimerRef.current);
+        restartTimerRef.current = null;
+      }
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.abort();
+        } catch {}
+        recognitionRef.current = null;
+      }
+      if (typeof window !== "undefined" && window.speechSynthesis) {
+        window.speechSynthesis.cancel();
+      }
+      responsePendingRef.current = false;
+      statusRef.current = "idle";
+    }
+  }, [activated]);
 
   useEffect(() => {
     const history = routeHistoryRef.current;
@@ -79,17 +160,35 @@ export default function VoiceAssistant() {
   const speak = useCallback(
     (text: string) => {
       setMessage(text);
-      if (!("speechSynthesis" in window)) {
+      if (typeof window === "undefined" || !("speechSynthesis" in window)) {
         changeStatus("idle");
         responsePendingRef.current = false;
         if (activatedRef.current) startRecognitionRef.current();
         return;
       }
 
+      // Abort ongoing recognition while speaking to prevent feedback loops
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.abort();
+        } catch {}
+        recognitionRef.current = null;
+      }
+
       window.speechSynthesis.cancel();
       const utterance = new SpeechSynthesisUtterance(text);
       utterance.rate = 1;
       utterance.pitch = 0.9;
+
+      const voices = window.speechSynthesis.getVoices();
+      const preferredVoice =
+        voices.find((v) => v.lang === "en-IN" || v.lang === "en_IN") ||
+        voices.find((v) => v.lang.startsWith("en") && !v.localService) ||
+        voices.find((v) => v.lang.startsWith("en"));
+      if (preferredVoice) {
+        utterance.voice = preferredVoice;
+      }
+
       utterance.onstart = () => {
         if (mountedRef.current) changeStatus("speaking");
       };
@@ -102,7 +201,6 @@ export default function VoiceAssistant() {
       utterance.onerror = () => {
         if (!mountedRef.current) return;
         changeStatus("idle");
-        setMessage("Speech playback was interrupted");
         responsePendingRef.current = false;
         if (activatedRef.current) startRecognitionRef.current();
       };
@@ -113,8 +211,10 @@ export default function VoiceAssistant() {
 
   const runCommand = useCallback(
     (spokenText: string) => {
-      const command = resolveVoiceNavigationCommand(spokenText, pathname);
+      const currentPath = pathnameRef.current;
+      const command = resolveVoiceNavigationCommand(spokenText, currentPath);
       responsePendingRef.current = true;
+
       if (command.type === "scroll") {
         if (command.direction === "top") {
           window.scrollTo({ top: 0, behavior: "smooth" });
@@ -131,7 +231,7 @@ export default function VoiceAssistant() {
             behavior: "smooth",
           });
         }
-        speak(getVoiceCommandReply(command, pathname));
+        speak(getVoiceCommandReply(command, currentPath));
         return;
       }
 
@@ -144,9 +244,9 @@ export default function VoiceAssistant() {
       if (command.type === "back") {
         if (routeHistoryRef.current.length > 1) {
           routeHistoryRef.current.pop();
-          speak(getVoiceCommandReply(command, pathname));
+          speak(getVoiceCommandReply(command, currentPath));
           router.back();
-        } else if (pathname !== "/") {
+        } else if (currentPath !== "/") {
           speak("Of course, Sir. You're back on the Home page.");
           routeHistoryRef.current = ["/"];
           router.replace("/");
@@ -157,15 +257,19 @@ export default function VoiceAssistant() {
       }
 
       if (command.type === "navigate") {
-        speak(getVoiceCommandReply(command, pathname));
-        if (pathname !== command.href) router.push(command.href);
+        speak(getVoiceCommandReply(command, currentPath));
+        if (currentPath !== command.href) router.push(command.href);
         return;
       }
 
-      speak(getVoiceCommandReply(command, pathname));
+      speak(getVoiceCommandReply(command, currentPath));
     },
-    [pathname, router, speak],
+    [router, speak],
   );
+
+  useEffect(() => {
+    runCommandRef.current = runCommand;
+  }, [runCommand]);
 
   const startRecognition = useCallback(() => {
     if (
@@ -183,10 +287,14 @@ export default function VoiceAssistant() {
     if (!RecognitionAPI) return;
 
     const recognition = new RecognitionAPI();
-    recognition.lang = "en-IN";
+    recognition.lang =
+      typeof navigator !== "undefined" && navigator.language?.startsWith("en")
+        ? navigator.language
+        : "en-IN";
     recognition.interimResults = true;
     recognition.continuous = true;
     finalTranscriptRef.current = "";
+
     recognition.onresult = (event) => {
       let finalText = "";
       let interimText = "";
@@ -228,31 +336,27 @@ export default function VoiceAssistant() {
 
           setTranscript(spokenText);
           responsePendingRef.current = true;
-          recognition.stop();
-          runCommand(spokenText);
+          try {
+            recognition.stop();
+          } catch {}
+          runCommandRef.current(spokenText);
         }, 700);
       }
     };
+
     recognition.onerror = (event) => {
       if (!mountedRef.current) return;
-      if (
-        event.error === "not-allowed" ||
-        event.error === "service-not-allowed"
-      ) {
-        if (finalResultTimerRef.current !== null) {
-          window.clearTimeout(finalResultTimerRef.current);
-          finalResultTimerRef.current = null;
-        }
-        finalTranscriptRef.current = "";
-        activatedRef.current = false;
-        setActivated(false);
-        setMessage(
-          "Microphone access denied. Enable it to use voice assistance.",
-        );
-      } else if (event.error !== "no-speech" && event.error !== "aborted") {
-        setMessage("Voice input was interrupted. Reconnecting…");
+      if (event.error === "no-speech" || event.error === "aborted") {
+        return;
       }
+      // Never display error messages or deactivate assistant on transient audio/permission glitch
+      if (finalResultTimerRef.current !== null) {
+        window.clearTimeout(finalResultTimerRef.current);
+        finalResultTimerRef.current = null;
+      }
+      finalTranscriptRef.current = "";
     };
+
     recognition.onend = () => {
       if (recognitionRef.current === recognition) recognitionRef.current = null;
       if (!mountedRef.current) return;
@@ -261,9 +365,18 @@ export default function VoiceAssistant() {
         !responsePendingRef.current &&
         finalResultTimerRef.current === null
       ) {
+        if (restartTimerRef.current !== null) {
+          window.clearTimeout(restartTimerRef.current);
+        }
         restartTimerRef.current = window.setTimeout(() => {
           restartTimerRef.current = null;
-          startRecognitionRef.current();
+          if (
+            activatedRef.current &&
+            mountedRef.current &&
+            !responsePendingRef.current
+          ) {
+            startRecognitionRef.current();
+          }
         }, 400);
       } else if (!activatedRef.current) {
         changeStatus("idle");
@@ -271,26 +384,38 @@ export default function VoiceAssistant() {
     };
 
     recognitionRef.current = recognition;
-    setMessage("Listening for your next request");
     changeStatus("listening");
     try {
       recognition.start();
-    } catch (error) {
+    } catch {
       recognitionRef.current = null;
       changeStatus("idle");
-      setMessage("Could not start voice input");
-      console.error("Unable to start voice recognition.", error);
+      if (activatedRef.current && !responsePendingRef.current) {
+        if (restartTimerRef.current !== null) {
+          window.clearTimeout(restartTimerRef.current);
+        }
+        restartTimerRef.current = window.setTimeout(() => {
+          restartTimerRef.current = null;
+          if (
+            activatedRef.current &&
+            mountedRef.current &&
+            !responsePendingRef.current
+          ) {
+            startRecognitionRef.current();
+          }
+        }, 800);
+      }
     }
-  }, [changeStatus, runCommand]);
+  }, [changeStatus]);
 
   useEffect(() => {
     startRecognitionRef.current = startRecognition;
   }, [startRecognition]);
 
-  const startListening = useCallback(() => {
+  const startListening = useCallback(async () => {
     if (activatedRef.current) {
-      activatedRef.current = false;
-      setActivated(false);
+      // User requested mute
+      setVoiceActive(false);
       if (finalResultTimerRef.current !== null) {
         window.clearTimeout(finalResultTimerRef.current);
         finalResultTimerRef.current = null;
@@ -300,13 +425,29 @@ export default function VoiceAssistant() {
         window.clearTimeout(restartTimerRef.current);
         restartTimerRef.current = null;
       }
-      recognitionRef.current?.abort();
-      recognitionRef.current = null;
-      window.speechSynthesis?.cancel();
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.abort();
+        } catch {}
+        recognitionRef.current = null;
+      }
+      if (typeof window !== "undefined" && window.speechSynthesis) {
+        window.speechSynthesis.cancel();
+      }
       responsePendingRef.current = false;
       changeStatus("idle");
-      setMessage("Voice assistance paused");
+      setMessage("Voice assistant muted");
       return;
+    }
+
+    // Direct user click/activation: request microphone stream to guarantee earpod / browser permission
+    if (typeof navigator !== "undefined" && navigator.mediaDevices?.getUserMedia) {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        stream.getTracks().forEach((track) => track.stop());
+      } catch (err) {
+        console.warn("Audio input initialization:", err);
+      }
     }
 
     const browser = window as RecognitionWindow;
@@ -317,15 +458,51 @@ export default function VoiceAssistant() {
       return;
     }
 
-    activatedRef.current = true;
-    setActivated(true);
+    setVoiceActive(true);
     setTranscript("");
     responsePendingRef.current = true;
     speak("Voice assistant activated sir.");
   }, [changeStatus, speak]);
 
+  // Reconnect on audio device changes (e.g. earpods plugged in or connected via Bluetooth)
+  useEffect(() => {
+    if (typeof navigator === "undefined" || !navigator.mediaDevices?.addEventListener) {
+      return;
+    }
+    const handleDeviceChange = () => {
+      if (!mountedRef.current || !activatedRef.current) return;
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.abort();
+        } catch {}
+        recognitionRef.current = null;
+      }
+      if (!responsePendingRef.current) {
+        if (restartTimerRef.current !== null) {
+          window.clearTimeout(restartTimerRef.current);
+        }
+        restartTimerRef.current = window.setTimeout(() => {
+          restartTimerRef.current = null;
+          if (
+            activatedRef.current &&
+            mountedRef.current &&
+            !responsePendingRef.current
+          ) {
+            startRecognitionRef.current();
+          }
+        }, 500);
+      }
+    };
+
+    navigator.mediaDevices.addEventListener("devicechange", handleDeviceChange);
+    return () => {
+      navigator.mediaDevices.removeEventListener("devicechange", handleDeviceChange);
+    };
+  }, []);
+
   useEffect(() => {
     mountedRef.current = true;
+
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.altKey && event.shiftKey && event.code === "KeyV") {
         event.preventDefault();
@@ -337,18 +514,26 @@ export default function VoiceAssistant() {
     return () => {
       mountedRef.current = false;
       window.removeEventListener("keydown", onKeyDown);
-      activatedRef.current = false;
       if (finalResultTimerRef.current !== null) {
         window.clearTimeout(finalResultTimerRef.current);
       }
       if (restartTimerRef.current !== null) {
         window.clearTimeout(restartTimerRef.current);
       }
-      recognitionRef.current?.abort();
-      recognitionRef.current = null;
-      window.speechSynthesis?.cancel();
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.abort();
+        } catch {}
+        recognitionRef.current = null;
+      }
+      if (typeof window !== "undefined" && window.speechSynthesis) {
+        window.speechSynthesis.cancel();
+      }
     };
   }, [startListening]);
+
+  const displayedMessage =
+    transcript || (activated ? "Voice assistant activated sir." : message);
 
   return (
     <aside
@@ -361,9 +546,14 @@ export default function VoiceAssistant() {
         type="button"
         onClick={startListening}
         aria-label={
-          activated ? "Pause voice assistance" : "Activate voice assistance"
+          activated ? "Mute voice assistant" : "Activate voice assistance"
         }
         aria-pressed={activated}
+        title={
+          activated
+            ? "Voice assistant active (Click to mute)"
+            : "Activate voice assistance (Alt+Shift+V)"
+        }
       >
         <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
           <rect x="9" y="3" width="6" height="12" rx="3" />
@@ -377,14 +567,16 @@ export default function VoiceAssistant() {
         aria-atomic="true"
       >
         <span className="voice-assistant-transcript">
-          {transcript || message}
+          {displayedMessage}
         </span>
         <span className="voice-assistant-hint">
           {activated
             ? status === "speaking"
               ? "Voice assistant"
-              : "Listening for requests"
-            : message}
+              : status === "listening"
+                ? "Listening for requests"
+                : "Voice assistant active"
+            : "Voice assistant muted"}
         </span>
       </div>
     </aside>

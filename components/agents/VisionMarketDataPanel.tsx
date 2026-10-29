@@ -1,14 +1,21 @@
 "use client";
 
 /**
- * Dynamic Upstox Market Data & Financial Analytics Panel for Vision Agent.
+ * Dynamic Market Data & Financial Analytics Panel for Vision Agent.
  *
- * All data is dynamically streamed and fetched directly from Upstox API v2.
+ * All data is dynamically streamed and fetched directly from live market feeds.
  * No static, mock, or hardcoded instrument data is used.
  * Credentials remain strictly server-side.
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import {
   pipelineErrorResponseSchema,
   pipelineFetchResponseSchema,
@@ -22,10 +29,29 @@ import "./VisionMarketDataPanel.css";
 const PIPELINE_ID = "indian-equities";
 const AUTO_REFRESH_INTERVAL_MS = 6000;
 
+function subscribeClock(callback: () => void): () => void {
+  const timer = setInterval(callback, 1000);
+  return () => clearInterval(timer);
+}
+
+function getClockSnapshot(): number {
+  return Math.floor(Date.now() / 1000);
+}
+
+function getServerClockSnapshot(): number | null {
+  return null;
+}
+
 function formatTime(ms: number | null | undefined): string {
   if (!ms) return "—";
   const date = new Date(ms);
-  return Number.isNaN(date.getTime()) ? "—" : date.toLocaleTimeString();
+  if (Number.isNaN(date.getTime())) return "—";
+  return date.toLocaleTimeString("en-IN", {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: true,
+  });
 }
 
 function formatPrice(val: number | null | undefined, currency = "INR"): string {
@@ -45,66 +71,303 @@ function formatNumber(val: number | null | undefined): string {
   return val.toLocaleString("en-IN");
 }
 
+export const INDIAN_MARKET_HOLIDAYS: Record<string, string> = {
+  // 2024
+  "2024-01-26": "Republic Day",
+  "2024-03-08": "Mahashivratri",
+  "2024-03-25": "Holi",
+  "2024-03-29": "Good Friday",
+  "2024-04-11": "Id-Ul-Fitr",
+  "2024-04-17": "Ram Navami",
+  "2024-05-01": "Maharashtra Day",
+  "2024-05-20": "General Elections",
+  "2024-06-17": "Bakri Id",
+  "2024-07-17": "Muharram",
+  "2024-08-15": "Independence Day",
+  "2024-10-02": "Mahatma Gandhi Jayanti",
+  "2024-11-01": "Diwali Laxmi Pujan",
+  "2024-11-15": "Gurunanak Jayanti",
+  "2024-12-25": "Christmas",
+
+  // 2025
+  "2025-01-26": "Republic Day",
+  "2025-02-26": "Mahashivratri",
+  "2025-03-14": "Holi",
+  "2025-03-31": "Id-Ul-Fitr",
+  "2025-04-10": "Mahavir Jayanti",
+  "2025-04-14": "Dr. Ambedkar Jayanti",
+  "2025-04-18": "Good Friday",
+  "2025-05-01": "Maharashtra Day",
+  "2025-06-07": "Bakri Id",
+  "2025-08-15": "Independence Day",
+  "2025-08-27": "Ganesh Chaturthi",
+  "2025-10-02": "Mahatma Gandhi Jayanti",
+  "2025-10-21": "Dussehra",
+  "2025-11-01": "Diwali Laxmi Pujan",
+  "2025-11-05": "Gurunanak Jayanti",
+  "2025-12-25": "Christmas",
+
+  // 2026
+  "2026-01-26": "Republic Day",
+  "2026-02-16": "Mahashivratri",
+  "2026-03-04": "Holi",
+  "2026-03-20": "Id-Ul-Fitr",
+  "2026-04-03": "Good Friday",
+  "2026-04-14": "Dr. Ambedkar Jayanti",
+  "2026-04-21": "Ram Navami",
+  "2026-05-01": "Maharashtra Day",
+  "2026-05-27": "Bakri Id",
+  "2026-06-26": "Muharram",
+  "2026-08-15": "Independence Day",
+  "2026-09-14": "Ganesh Chaturthi",
+  "2026-10-02": "Mahatma Gandhi Jayanti",
+  "2026-10-20": "Dussehra",
+  "2026-11-08": "Diwali Laxmi Pujan",
+  "2026-11-10": "Diwali Balipratipada",
+  "2026-11-24": "Gurunanak Jayanti",
+  "2026-12-25": "Christmas",
+
+  // 2027
+  "2027-01-26": "Republic Day",
+  "2027-02-15": "Mahashivratri",
+  "2027-03-10": "Id-Ul-Fitr",
+  "2027-03-23": "Holi",
+  "2027-03-26": "Good Friday",
+  "2027-04-14": "Dr. Ambedkar Jayanti",
+  "2027-05-01": "Maharashtra Day",
+  "2027-08-15": "Independence Day",
+  "2027-10-02": "Mahatma Gandhi Jayanti",
+  "2027-10-10": "Dussehra",
+  "2027-10-29": "Diwali Laxmi Pujan",
+  "2027-12-25": "Christmas",
+
+  // 2028
+  "2028-01-26": "Republic Day",
+  "2028-04-14": "Dr. Ambedkar Jayanti",
+  "2028-05-01": "Maharashtra Day",
+  "2028-08-15": "Independence Day",
+  "2028-10-02": "Mahatma Gandhi Jayanti",
+  "2028-12-25": "Christmas",
+};
+
+export function getFixedNationalHoliday(month: number, day: number): string | null {
+  if (month === 1 && day === 26) return "Republic Day";
+  if (month === 4 && day === 14) return "Dr. B.R. Ambedkar Jayanti";
+  if (month === 5 && day === 1) return "Maharashtra Day";
+  if (month === 8 && day === 15) return "Independence Day";
+  if (month === 10 && day === 2) return "Mahatma Gandhi Jayanti";
+  if (month === 12 && day === 25) return "Christmas";
+  return null;
+}
+
+export function getMarketHoliday(isoDate: string, month: number, day: number): string | null {
+  return INDIAN_MARKET_HOLIDAYS[isoDate] ?? getFixedNationalHoliday(month, day) ?? null;
+}
+
+export function getKolkataTimeParts(date: Date) {
+  const formatter = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Asia/Kolkata",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+    weekday: "short",
+  });
+  const parts = Object.fromEntries(
+    formatter.formatToParts(date).map((p) => [p.type, p.value]),
+  );
+  const year = parseInt(parts.year, 10);
+  const month = parseInt(parts.month, 10);
+  const day = parseInt(parts.day, 10);
+  const hour = parseInt(parts.hour, 10);
+  const minute = parseInt(parts.minute, 10);
+  const second = parseInt(parts.second, 10);
+  const weekday = parts.weekday;
+  const isoDate = `${parts.year}-${parts.month}-${parts.day}`;
+  return { year, month, day, hour, minute, second, weekday, isoDate };
+}
+
+export type MarketSessionType =
+  | "regular"
+  | "pre-market"
+  | "before-open"
+  | "post-close"
+  | "weekend"
+  | "holiday"
+  | "closed";
+
 export type MarketStatus = {
   isOpen: boolean;
   label: string;
   detail: string;
+  session: MarketSessionType;
+  tradingHours: string;
+  countdown?: string;
+  isHoliday?: boolean;
+  holidayName?: string | null;
+  isEod?: boolean;
 };
 
 export const DEFAULT_MARKET_STATUS: MarketStatus = {
   isOpen: false,
-  label: "Market Closed · EOD",
+  label: "Market Closed",
   detail: "NSE/BSE Indian Market Data",
+  session: "closed",
+  tradingHours: "9:15 AM – 3:30 PM IST",
+  isEod: true,
 };
 
-export function getIndianMarketStatus(referenceDate?: Date): MarketStatus {
+export function getIndianMarketStatus(
+  referenceDate?: Date,
+  assetType: "equity" | "commodity" = "equity",
+): MarketStatus {
   try {
     const now = referenceDate ?? new Date();
-    const kolkataStr = now.toLocaleString("en-US", { timeZone: "Asia/Kolkata" });
-    const kolkataDate = new Date(kolkataStr);
-    const day = kolkataDate.getDay(); // 0 is Sunday, 6 is Saturday
-    const hours = kolkataDate.getHours();
-    const minutes = kolkataDate.getMinutes();
-    const currentMinutes = hours * 60 + minutes;
+    const kp = getKolkataTimeParts(now);
+    const currentMinutes = kp.hour * 60 + kp.minute;
+    const isWeekend = kp.weekday === "Sat" || kp.weekday === "Sun";
+    const todayHoliday = getMarketHoliday(kp.isoDate, kp.month, kp.day);
 
-    const isWeekday = day >= 1 && day <= 5;
-    // NSE/BSE regular trading: 9:15 AM (555 min) to 3:30 PM (930 min) IST
-    const isMarketHours = currentMinutes >= 555 && currentMinutes < 930;
+    const isCommodity = assetType === "commodity";
+    // Equities: NSE/BSE 9:15 AM (555 min) - 3:30 PM (930 min). Pre-market 9:00 AM (540 min)
+    // Commodities: MCX 9:00 AM (540 min) - 11:30 PM (1410 min)
+    const openMinutes = isCommodity ? 540 : 555;
+    const closeMinutes = isCommodity ? 1410 : 930;
+    const openHourUtc = 3;
+    const openMinUtc = isCommodity ? 30 : 45;
+    const closeHourUtc = isCommodity ? 18 : 10;
+    const closeMinUtc = 0;
 
-    if (isWeekday && isMarketHours) {
-      return {
-        isOpen: true,
-        label: "Live Market",
-        detail: "NSE/BSE Regular Trading (9:15 AM – 3:30 PM IST)",
-      };
+    const tradingHours = isCommodity
+      ? "9:00 AM – 11:30 PM IST"
+      : "9:15 AM – 3:30 PM IST";
+    const exchangeName = isCommodity ? "MCX" : "NSE/BSE";
+
+    const todayOpenMs = Date.UTC(
+      kp.year,
+      kp.month - 1,
+      kp.day,
+      openHourUtc,
+      openMinUtc,
+      0,
+    );
+    const todayCloseMs = Date.UTC(
+      kp.year,
+      kp.month - 1,
+      kp.day,
+      closeHourUtc,
+      closeMinUtc,
+      0,
+    );
+
+    const nowMs = now.getTime();
+
+    let isOpen = false;
+    let session: MarketSessionType = "closed";
+    let label = "Market Closed";
+    let detail = `${exchangeName} Regular Trading (${tradingHours})`;
+    let countdownLabel = "";
+    let targetMs = 0;
+
+    if (todayHoliday) {
+      session = "holiday";
+      label = `Holiday · ${todayHoliday}`;
+      detail = `${exchangeName} holiday (${todayHoliday}). Regular session closed. Showing EOD settlement.`;
+    } else if (isWeekend) {
+      session = "weekend";
+      label = "Market Closed (Weekend)";
+      detail = `${exchangeName} closed for weekend. Showing EOD settlement.`;
+    } else if (currentMinutes >= openMinutes && currentMinutes < closeMinutes) {
+      isOpen = true;
+      session = "regular";
+      label = "Live Market";
+      detail = `${exchangeName} Regular Trading (${tradingHours})`;
+      countdownLabel = "Closes in";
+      targetMs = todayCloseMs;
+    } else if (!isCommodity && currentMinutes >= 540 && currentMinutes < 555) {
+      session = "pre-market";
+      label = "Pre-Market Session";
+      detail = "Pre-market order matching (9:00 – 9:15 AM IST). Regular trading opens at 9:15 AM IST.";
+      countdownLabel = "Trading opens in";
+      targetMs = todayOpenMs;
+    } else if (currentMinutes < openMinutes) {
+      session = "before-open";
+      label = "Pre-Market / Closed";
+      detail = `Regular trading opens at ${isCommodity ? "9:00 AM" : "9:15 AM"} IST. Showing previous session EOD data.`;
+      countdownLabel = "Opens in";
+      targetMs = todayOpenMs;
+    } else {
+      session = "post-close";
+      label = "Market Closed · EOD";
+      detail = `Regular trading closed at ${isCommodity ? "11:30 PM" : "3:30 PM"} IST. Showing latest EOD closing data.`;
     }
 
-    if (!isWeekday) {
-      return {
-        isOpen: false,
-        label: "Market Closed (Weekend)",
-        detail: "Exchange closed. Showing EOD final settlement quotes.",
-      };
+    if (!targetMs || targetMs <= nowMs) {
+      let offsetDays = 1;
+      while (offsetDays <= 14) {
+        const testMs = Date.UTC(
+          kp.year,
+          kp.month - 1,
+          kp.day + offsetDays,
+          openHourUtc,
+          openMinUtc,
+          0,
+        );
+        const testDate = new Date(testMs);
+        const testKp = getKolkataTimeParts(testDate);
+        const isTestWeekend = testKp.weekday === "Sat" || testKp.weekday === "Sun";
+        const testHoliday = getMarketHoliday(testKp.isoDate, testKp.month, testKp.day);
+        if (!isTestWeekend && !testHoliday) {
+          targetMs = testMs;
+          countdownLabel = `Opens ${offsetDays === 1 ? "tomorrow" : testKp.weekday} in`;
+          break;
+        }
+        offsetDays++;
+      }
     }
 
-    if (currentMinutes < 555) {
-      return {
-        isOpen: false,
-        label: "Pre-Market / Closed",
-        detail: "Regular trading opens at 9:15 AM IST. Showing previous session EOD data.",
-      };
+    let countdown: string | undefined;
+    if (targetMs > nowMs) {
+      const diffMs = targetMs - nowMs;
+      const totalSec = Math.floor(diffMs / 1000);
+      const days = Math.floor(totalSec / 86400);
+      const hours = Math.floor((totalSec % 86400) / 3600);
+      const mins = Math.floor((totalSec % 3600) / 60);
+      const secs = totalSec % 60;
+
+      let timeStr = "";
+      if (days > 0) {
+        timeStr = `${days}d ${hours}h ${mins}m`;
+      } else if (hours > 0) {
+        timeStr = `${hours}h ${mins}m ${String(secs).padStart(2, "0")}s`;
+      } else {
+        timeStr = `${mins}m ${String(secs).padStart(2, "0")}s`;
+      }
+      countdown = `${countdownLabel} ${timeStr}`;
     }
 
     return {
-      isOpen: false,
-      label: "Market Closed · EOD Final",
-      detail: "Regular market closed at 3:30 PM IST. Showing latest EOD closing data.",
+      isOpen,
+      label,
+      detail,
+      session,
+      tradingHours,
+      countdown,
+      isHoliday: Boolean(todayHoliday),
+      holidayName: todayHoliday,
+      isEod: !isOpen,
     };
   } catch {
     return {
       isOpen: false,
       label: "EOD Data",
       detail: "Showing latest observed market quotes.",
+      session: "closed",
+      tradingHours: "9:15 AM – 3:30 PM IST",
+      isEod: true,
     };
   }
 }
@@ -238,12 +501,22 @@ export default function VisionMarketDataPanel({
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [sortConfig, setSortConfig] = useState<SortConfig>(null);
 
-  const [marketStatus, setMarketStatus] =
-    useState<MarketStatus>(DEFAULT_MARKET_STATUS);
+  const nowSec = useSyncExternalStore(
+    subscribeClock,
+    getClockSnapshot,
+    getServerClockSnapshot,
+  );
+  const mounted = nowSec !== null;
+  const currentTime = useMemo(
+    () => (nowSec !== null ? new Date(nowSec * 1000) : null),
+    [nowSec],
+  );
 
-  useEffect(() => {
-    setMarketStatus(getIndianMarketStatus());
-  }, [snapshot]);
+  const assetType = filter === "commodities" ? "commodity" : "equity";
+  const marketStatus = useMemo(() => {
+    if (!currentTime) return DEFAULT_MARKET_STATUS;
+    return getIndianMarketStatus(currentTime, assetType);
+  }, [currentTime, assetType]);
 
   const controllerRef = useRef<AbortController | null>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -266,8 +539,8 @@ export default function VisionMarketDataPanel({
       if (!response.ok) {
         const failed = pipelineErrorResponseSchema.safeParse(payload);
         const errorMsg = failed.success
-          ? failed.data.error.message
-          : `Upstox request failed with status ${response.status}.`;
+          ? failed.data.error.message.replace(/Upstox/gi, "Market Data")
+          : `Market data request failed with status ${response.status}.`;
         setError(errorMsg);
         if (failed.success && failed.data.snapshot) {
           setSnapshot(failed.data.snapshot);
@@ -287,8 +560,8 @@ export default function VisionMarketDataPanel({
       if (controller.signal.aborted) return;
       setError(
         err instanceof Error
-          ? err.message
-          : "Unable to reach Upstox market data service.",
+          ? err.message.replace(/Upstox/gi, "Market Data")
+          : "Unable to reach market data service.",
       );
     } finally {
       setLoading(false);
@@ -316,8 +589,8 @@ export default function VisionMarketDataPanel({
           const failed = pipelineErrorResponseSchema.safeParse(payload);
           setError(
             failed.success
-              ? failed.data.error.message
-              : `Upstox request failed with status ${response.status}.`,
+              ? failed.data.error.message.replace(/Upstox/gi, "Market Data")
+              : `Market data request failed with status ${response.status}.`,
           );
           if (failed.success && failed.data.snapshot) {
             setSnapshot(failed.data.snapshot);
@@ -339,8 +612,8 @@ export default function VisionMarketDataPanel({
         if (!active || controller.signal.aborted) return;
         setError(
           err instanceof Error
-            ? err.message
-            : "Unable to reach Upstox market data service.",
+            ? err.message.replace(/Upstox/gi, "Market Data")
+            : "Unable to reach market data service.",
         );
       } finally {
         if (active) setLoading(false);
@@ -661,46 +934,90 @@ export default function VisionMarketDataPanel({
   return (
     <section
       className="vision-market-data"
-      aria-label="Upstox Dynamic Stocks Analysis"
+      aria-label="Dynamic Market Analysis"
     >
       {/* Header */}
       <header className="vision-market-data-header">
         <div>
           <p className="agent-team-eyebrow">
-            UPSTOX REAL-TIME MARKET DATA · MULTI-ASSET VISION ANALYTICS
+            REAL-TIME MARKET INTELLIGENCE
           </p>
-          <h2>Indian Stocks, Derivatives & Commodities Dynamic Analysis</h2>
+          <h2>Indian Equities & Derivatives</h2>
           <div className="vision-market-data-header-meta">
+            {marketStatus.isOpen ? (
+              <span
+                className="vision-live-indicator"
+                title={marketStatus.detail}
+                suppressHydrationWarning
+              >
+                <span className="vision-live-dot" />
+                Live ({marketStatus.tradingHours})
+              </span>
+            ) : (
+              <span
+                className={`vision-status-badge ${
+                  marketStatus.isHoliday
+                    ? "is-holiday"
+                    : marketStatus.session === "pre-market"
+                      ? "is-pre-market"
+                      : "is-closed"
+                }`}
+                title={marketStatus.detail}
+                suppressHydrationWarning
+              >
+                ● {mounted ? marketStatus.label : DEFAULT_MARKET_STATUS.label}
+              </span>
+            )}
+
+            {mounted && marketStatus.countdown && (
+              <span
+                className="vision-countdown-tag"
+                title={`Trading session window: ${marketStatus.tradingHours}`}
+                suppressHydrationWarning
+              >
+                <svg
+                  width="12"
+                  height="12"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
+                  <circle cx="12" cy="12" r="10" />
+                  <polyline points="12 6 12 12 16 14" />
+                </svg>
+                {marketStatus.countdown}
+              </span>
+            )}
+
             <span className="vision-market-data-provider-tag">
-              Provider: <strong>Upstox API v2 Live</strong>
-            </span>
-            <span className="vision-market-data-provider-tag">
-              Updated (EOD):{" "}
-              <strong>
-                {formatTime(
-                  snapshot?.status?.lastUpdatedAtMs ??
-                    snapshot?.status?.lastSuccessAtMs,
-                )}
+              Last Updated:{" "}
+              <strong suppressHydrationWarning>
+                {mounted
+                  ? formatTime(
+                      snapshot?.status?.lastUpdatedAtMs ??
+                        snapshot?.status?.lastSuccessAtMs,
+                    )
+                  : "—"}
               </strong>
             </span>
+
+            {!marketStatus.isOpen && (
+              <span
+                className="vision-market-data-provider-tag"
+                title="Quotes reflect End-of-Day settlement prices from previous trading session"
+              >
+                Quotes: <strong>EOD</strong>
+              </span>
+            )}
+
             {snapshot?.status?.connected && (
-              marketStatus.isOpen ? (
-                <span className="vision-live-indicator">
-                  <span className="vision-live-dot" />
-                  Live Feed
-                </span>
-              ) : (
-                <span
-                  className="vision-market-data-provider-tag"
-                  style={{
-                    borderColor: "rgba(234, 179, 8, 0.4)",
-                    color: "#eab308",
-                  }}
-                  title={marketStatus.detail}
-                >
-                  ● {marketStatus.label}
-                </span>
-              )
+              <span className="vision-market-data-provider-tag">
+                Feed: <strong>Active</strong>
+              </span>
             )}
           </div>
         </div>
@@ -732,14 +1049,14 @@ export default function VisionMarketDataPanel({
       {/* Error Banner */}
       {error && (
         <div className="vision-market-data-message is-error" role="alert">
-          <strong>Upstox Live Feed Alert:</strong> {error}
+          <strong>Market Feed Alert:</strong> {error}
         </div>
       )}
 
       {/* Loading State */}
       {loading && !snapshot && (
         <p className="vision-market-data-message" role="status">
-          Connecting to Upstox API v2 and loading live quotes…
+          Connecting to live market data feed…
         </p>
       )}
 
@@ -1224,7 +1541,7 @@ export default function VisionMarketDataPanel({
                     style={{ textAlign: "center", padding: "32px" }}
                   >
                     {loading
-                      ? "Loading live Upstox quotes…"
+                      ? "Loading live market quotes…"
                       : "No matching stocks found for your search/filter."}
                   </td>
                 </tr>
@@ -1312,7 +1629,7 @@ export default function VisionMarketDataPanel({
         )}
       </div>
 
-      {/* Upstox Market Depth & Circuit Limits Modal */}
+      {/* Market Depth & Circuit Limits Modal */}
       {activePoint && (
         <div
           className="vision-modal-overlay"
@@ -1328,16 +1645,16 @@ export default function VisionMarketDataPanel({
               <div>
                 <p className="agent-team-eyebrow">
                   {activePoint.group.toLowerCase().includes("indices")
-                    ? "UPSTOX BENCHMARK INDEX"
+                    ? "BENCHMARK INDEX"
                     : activePoint.group.toLowerCase().includes("futures")
-                      ? "UPSTOX FUTURES MARKET DEPTH"
+                      ? "FUTURES MARKET DEPTH"
                       : activePoint.group.toLowerCase().includes("options")
-                        ? "UPSTOX OPTIONS MARKET DEPTH"
+                        ? "OPTIONS MARKET DEPTH"
                         : activePoint.group
                               .toLowerCase()
                               .includes("commodities")
-                          ? "UPSTOX COMMODITIES MARKET DEPTH"
-                          : "UPSTOX LIVE STOCK DEPTH"}
+                          ? "COMMODITIES MARKET DEPTH"
+                          : "ORDER BOOK & MARKET DEPTH"}
                 </p>
                 <h3 style={{ margin: "4px 0" }}>
                   {activePoint.quote.symbol} · {activePoint.label}
@@ -1624,19 +1941,24 @@ export default function VisionMarketDataPanel({
                   <span
                     className="vision-instrument-name"
                     style={{ fontSize: "0.8rem" }}
-                    title="Last executed trade on NSE/BSE before regular market close (3:30 PM IST)"
+                    title="Last executed trade timestamp on exchange"
                   >
-                    Last Trade (LTT):{" "}
-                    <strong>{formatTime(activePoint.quote.lastTradeTimeMs)}</strong>
+                    Last Trade:{" "}
+                    <strong suppressHydrationWarning>{formatTime(activePoint.quote.lastTradeTimeMs)}</strong>
                   </span>
                 )}
                 <span
                   className="vision-instrument-name"
                   style={{ fontSize: "0.8rem" }}
-                  title="Timestamp when this EOD quote snapshot was fetched from Upstox"
+                  title={
+                    marketStatus.isOpen
+                      ? "Timestamp when quote was received"
+                      : "Timestamp of latest quote snapshot (EOD close)"
+                  }
                 >
-                  Latest Updated (EOD):{" "}
-                  <strong>{formatTime(activePoint.quote.observedAtMs)}</strong>
+                  {marketStatus.isOpen ? "Last Updated: " : "Feed Updated: "}
+                  <strong suppressHydrationWarning>{formatTime(activePoint.quote.observedAtMs)}</strong>
+                  {!marketStatus.isOpen && " (EOD)"}
                 </span>
               </div>
             </div>

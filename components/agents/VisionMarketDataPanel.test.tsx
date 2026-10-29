@@ -10,7 +10,9 @@ import {
   within,
   cleanup,
 } from "@testing-library/react";
-import VisionMarketDataPanel from "./VisionMarketDataPanel";
+import VisionMarketDataPanel, {
+  getIndianMarketStatus,
+} from "./VisionMarketDataPanel";
 
 const mockSnapshot = {
   status: {
@@ -261,5 +263,136 @@ describe("VisionMarketDataPanel numeric sorting", () => {
     expect(rows[3]).toHaveTextContent("S_NEG5");
     expect(rows[4]).toHaveTextContent("S_POS1");
     expect(rows[5]).toHaveTextContent("S_NEG1");
+  });
+});
+
+
+describe("getIndianMarketStatus dynamic schedule & holidays", () => {
+  it("detects live market hours on a regular weekday (9:15 AM - 3:30 PM IST)", () => {
+    // Thursday 2026-10-29 at 11:30:00 AM IST
+    const liveDate = new Date("2026-10-29T11:30:00+05:30");
+    const status = getIndianMarketStatus(liveDate, "equity");
+
+    expect(status.isOpen).toBe(true);
+    expect(status.session).toBe("regular");
+    expect(status.label).toBe("Live Market");
+    expect(status.tradingHours).toBe("9:15 AM – 3:30 PM IST");
+    expect(status.countdown).toContain("Closes in");
+    expect(status.isEod).toBe(false);
+  });
+
+  it("detects pre-market session on a weekday morning (9:00 AM - 9:15 AM IST)", () => {
+    // Thursday 2026-10-29 at 09:05:00 AM IST
+    const preMarketDate = new Date("2026-10-29T09:05:00+05:30");
+    const status = getIndianMarketStatus(preMarketDate, "equity");
+
+    expect(status.isOpen).toBe(false);
+    expect(status.session).toBe("pre-market");
+    expect(status.label).toBe("Pre-Market Session");
+    expect(status.countdown).toContain("Trading opens in");
+    expect(status.isEod).toBe(true);
+  });
+
+  it("detects before-open on a weekday morning and shows countdown to 9:15 AM IST", () => {
+    // Thursday 2026-10-29 at 08:27:29 AM IST
+    const morningDate = new Date("2026-10-29T08:27:29+05:30");
+    const status = getIndianMarketStatus(morningDate, "equity");
+
+    expect(status.isOpen).toBe(false);
+    expect(status.session).toBe("before-open");
+    expect(status.label).toBe("Pre-Market / Closed");
+    expect(status.countdown).toContain("Opens in");
+    expect(status.isEod).toBe(true);
+  });
+
+  it("detects post-close in evening and counts down to next trading day", () => {
+    // Thursday 2026-10-29 at 04:00:00 PM IST
+    const eveningDate = new Date("2026-10-29T16:00:00+05:30");
+    const status = getIndianMarketStatus(eveningDate, "equity");
+
+    expect(status.isOpen).toBe(false);
+    expect(status.session).toBe("post-close");
+    expect(status.label).toBe("Market Closed · EOD");
+    expect(status.countdown).toContain("Opens tomorrow in");
+    expect(status.isEod).toBe(true);
+  });
+
+  it("detects weekend and skips to Monday open", () => {
+    // Saturday 2026-10-31 at 12:00:00 PM IST
+    const weekendDate = new Date("2026-10-31T12:00:00+05:30");
+    const status = getIndianMarketStatus(weekendDate, "equity");
+
+    expect(status.isOpen).toBe(false);
+    expect(status.session).toBe("weekend");
+    expect(status.label).toBe("Market Closed (Weekend)");
+    expect(status.countdown).toContain("Opens Mon in");
+    expect(status.isEod).toBe(true);
+  });
+
+  it("detects dynamic Indian exchange holidays correctly", () => {
+    // Dussehra: 2026-10-20
+    const holidayDate = new Date("2026-10-20T10:00:00+05:30");
+    const status = getIndianMarketStatus(holidayDate, "equity");
+
+    expect(status.isOpen).toBe(false);
+    expect(status.session).toBe("holiday");
+    expect(status.isHoliday).toBe(true);
+    expect(status.holidayName).toBe("Dussehra");
+    expect(status.label).toContain("Dussehra");
+    expect(status.isEod).toBe(true);
+  });
+
+  it("adjusts hours dynamically for commodities (MCX 9:00 AM - 11:30 PM IST)", () => {
+    // Thursday evening 2026-10-29 at 08:00:00 PM IST
+    const eveningDate = new Date("2026-10-29T20:00:00+05:30");
+    const equityStatus = getIndianMarketStatus(eveningDate, "equity");
+    const commodityStatus = getIndianMarketStatus(eveningDate, "commodity");
+
+    // Equity closed at 3:30 PM
+    expect(equityStatus.isOpen).toBe(false);
+    // Commodity open until 11:30 PM
+    expect(commodityStatus.isOpen).toBe(true);
+    expect(commodityStatus.tradingHours).toBe("9:00 AM – 11:30 PM IST");
+    expect(commodityStatus.countdown).toContain("Closes in");
+  });
+});
+
+describe("VisionMarketDataPanel Privacy and Professional Header", () => {
+  beforeEach(() => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          snapshot: mockSnapshot,
+          dataPoints: mockSnapshot.dataPoints,
+        }),
+      }),
+    );
+  });
+
+  afterEach(() => {
+    cleanup();
+    vi.unstubAllGlobals();
+  });
+
+  it("does not expose provider branding or internal API names in UI", async () => {
+    const { container } = render(<VisionMarketDataPanel />);
+
+    await screen.findByRole("table");
+
+    // Verify Upstox API v2 is not displayed
+    expect(screen.queryByText(/Upstox API v2 Live/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Provider:/i)).not.toBeInTheDocument();
+    expect(container.textContent).not.toContain("Upstox API v2");
+
+    // Clean professional header elements exist
+    expect(
+      screen.getByText("REAL-TIME MARKET INTELLIGENCE"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Indian Equities & Derivatives"),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/Last Updated:/i)).toBeInTheDocument();
   });
 });
