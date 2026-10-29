@@ -379,6 +379,7 @@ export type FilterType =
   | "futures"
   | "options"
   | "commodities"
+  | "bonds"
   | "gainers"
   | "losers";
 
@@ -453,6 +454,7 @@ export type VisionMarketContext = {
     futures: number;
     options: number;
     commodities: number;
+    bonds: number;
     total: number;
   };
   analytics: {
@@ -477,6 +479,27 @@ export type VisionMarketContext = {
     high: number | null;
     low: number | null;
     open: number | null;
+    close?: number | null;
+    previousClose?: number | null;
+    averagePrice?: number | null;
+    oi?: number | null;
+    oiDayHigh?: number | null;
+    oiDayLow?: number | null;
+    prevOi?: number | null;
+    oiChange?: number | null;
+    oiChangePercent?: number | null;
+    yearlyHigh?: number | null;
+    yearlyLow?: number | null;
+    lastQuantity?: number | null;
+    totalBuyQuantity?: number | null;
+    totalSellQuantity?: number | null;
+    lowerCircuit?: number | null;
+    upperCircuit?: number | null;
+    expiry?: string | null;
+    lotSize?: number | null;
+    strikePrice?: number | null;
+    tickSize?: number | null;
+    isin?: string | null;
   }>;
 };
 
@@ -720,15 +743,17 @@ export default function VisionMarketDataPanel({
     let futures = 0;
     let options = 0;
     let commodities = 0;
+    let bonds = 0;
     for (const p of dataPoints) {
       const g = p.group.toLowerCase();
       if (g.includes("indices")) indices++;
       else if (g.includes("futures")) futures++;
       else if (g.includes("options")) options++;
       else if (g.includes("commodities")) commodities++;
+      else if (g.includes("bond")) bonds++;
       else stocks++;
     }
-    return { stocks, indices, futures, options, commodities };
+    return { stocks, indices, futures, options, commodities, bonds };
   }, [dataPoints]);
 
   useEffect(() => {
@@ -752,6 +777,27 @@ export default function VisionMarketDataPanel({
         high: p.quote.high ?? null,
         low: p.quote.low ?? null,
         open: p.quote.open ?? null,
+        close: p.quote.close ?? null,
+        previousClose: p.quote.previousClose ?? null,
+        averagePrice: p.quote.averagePrice ?? null,
+        oi: p.quote.oi ?? null,
+        oiDayHigh: p.quote.oiDayHigh ?? null,
+        oiDayLow: p.quote.oiDayLow ?? null,
+        prevOi: p.quote.prevOi ?? null,
+        oiChange: p.quote.oiChange ?? null,
+        oiChangePercent: p.quote.oiChangePercent ?? null,
+        yearlyHigh: p.quote.yearlyHigh ?? null,
+        yearlyLow: p.quote.yearlyLow ?? null,
+        lastQuantity: p.quote.lastQuantity ?? null,
+        totalBuyQuantity: p.quote.totalBuyQuantity ?? null,
+        totalSellQuantity: p.quote.totalSellQuantity ?? null,
+        lowerCircuit: p.quote.lowerCircuit ?? null,
+        upperCircuit: p.quote.upperCircuit ?? null,
+        expiry: p.expiry ?? null,
+        lotSize: p.lotSize ?? null,
+        strikePrice: p.strikePrice ?? null,
+        tickSize: p.tickSize ?? null,
+        isin: p.isin ?? null,
       })),
     });
   }, [
@@ -771,7 +817,8 @@ export default function VisionMarketDataPanel({
       const isFutures = group.includes("futures");
       const isOptions = group.includes("options");
       const isCommodities = group.includes("commodities");
-      const isStock = !isIndex && !isFutures && !isOptions && !isCommodities;
+      const isBonds = group.includes("bond");
+      const isStock = !isIndex && !isFutures && !isOptions && !isCommodities && !isBonds;
       const changePct = point.quote.changePercent ?? 0;
 
       if (filter === "stocks" && !isStock) return false;
@@ -779,6 +826,7 @@ export default function VisionMarketDataPanel({
       if (filter === "futures" && !isFutures) return false;
       if (filter === "options" && !isOptions) return false;
       if (filter === "commodities" && !isCommodities) return false;
+      if (filter === "bonds" && !isBonds) return false;
       if (filter === "gainers" && changePct <= 0) return false;
       if (filter === "losers" && changePct >= 0) return false;
 
@@ -1221,6 +1269,7 @@ export default function VisionMarketDataPanel({
               ["futures", `Futures (${categoryCounts.futures})`],
               ["options", `Options (${categoryCounts.options})`],
               ["commodities", `Commodities (${categoryCounts.commodities})`],
+              ["bonds", `Bonds (${categoryCounts.bonds})`],
               ["gainers", "Gainers"],
               ["losers", "Losers"],
             ] as const
@@ -1387,7 +1436,9 @@ export default function VisionMarketDataPanel({
                         ? "OPTION"
                         : groupLower.includes("commodities")
                           ? "COMMODITY"
-                          : "STOCK";
+                          : groupLower.includes("bond")
+                            ? "BOND"
+                            : "STOCK";
 
                   return (
                     <tr key={point.instrument}>
@@ -1395,13 +1446,39 @@ export default function VisionMarketDataPanel({
                         <div className="vision-instrument-cell">
                           <span className="vision-instrument-symbol">
                             {point.quote.symbol}
-                            <span className="vision-instrument-tag">
-                              {tagLabel}
-                            </span>
                           </span>
                           <span className="vision-instrument-name">
                             {point.label}
                           </span>
+                          <div className="vision-instrument-tags">
+                            <span className="vision-instrument-tag">
+                              {tagLabel}
+                            </span>
+                            {point.expiry && (
+                              <span
+                                className="vision-instrument-tag vision-tag-expiry"
+                                title="Contract Expiration"
+                              >
+                                {point.expiry}
+                              </span>
+                            )}
+                            {point.lotSize && (
+                              <span
+                                className="vision-instrument-tag vision-tag-lot"
+                                title="Market Lot Size"
+                              >
+                                Lot: {point.lotSize}
+                              </span>
+                            )}
+                            {point.tickSize && (
+                              <span
+                                className="vision-instrument-tag vision-tag-tick"
+                                title="Minimum Price Tick Movement"
+                              >
+                                Tick: ₹{point.tickSize}
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </td>
                       <td>
@@ -1452,6 +1529,18 @@ export default function VisionMarketDataPanel({
                               style={{ left: `${rangePos}%` }}
                             />
                           </div>
+                          {point.quote.yearlyLow !== null &&
+                            point.quote.yearlyLow !== undefined &&
+                            point.quote.yearlyHigh !== null &&
+                            point.quote.yearlyHigh !== undefined && (
+                              <span
+                                className="vision-instrument-name"
+                                style={{ fontSize: "0.625rem", color: "var(--muted, #94a0b2)", marginTop: "0.125rem" }}
+                                title="52-Week / Yearly Price Range"
+                              >
+                                52W: {formatPrice(point.quote.yearlyLow, "INR")} – {formatPrice(point.quote.yearlyHigh, "INR")}
+                              </span>
+                            )}
                         </div>
                       </td>
                       <td>
@@ -1475,14 +1564,26 @@ export default function VisionMarketDataPanel({
                                 ? "Basket"
                                 : "—"}
                           </span>
-                          <span className="vision-instrument-name">
-                            VWAP:{" "}
-                            {vwap
-                              ? formatPrice(vwap, "INR")
-                              : isIndexItem
-                                ? "—"
-                                : "—"}
-                          </span>
+                          {point.quote.oi !== null &&
+                          point.quote.oi !== undefined &&
+                          point.quote.oi > 0 ? (
+                            <span
+                              className="vision-instrument-name"
+                              style={{ color: "#38bdf8", fontWeight: 600 }}
+                              title="Open Interest (Current Outstanding Contracts)"
+                            >
+                              OI: {formatNumber(point.quote.oi)}
+                            </span>
+                          ) : (
+                            <span className="vision-instrument-name">
+                              VWAP:{" "}
+                              {vwap
+                                ? formatPrice(vwap, "INR")
+                                : isIndexItem
+                                  ? "—"
+                                  : "—"}
+                            </span>
+                          )}
                         </div>
                       </td>
                       <td>
@@ -1538,7 +1639,7 @@ export default function VisionMarketDataPanel({
                 <tr>
                   <td
                     colSpan={8}
-                    style={{ textAlign: "center", padding: "32px" }}
+                    style={{ textAlign: "center", padding: "2rem" }}
                   >
                     {loading
                       ? "Loading live market quotes…"
@@ -1642,7 +1743,7 @@ export default function VisionMarketDataPanel({
             onClick={(e) => e.stopPropagation()}
           >
             <div className="vision-modal-header">
-              <div>
+              <div style={{ flex: 1, minWidth: 0 }}>
                 <p className="agent-team-eyebrow">
                   {activePoint.group.toLowerCase().includes("indices")
                     ? "BENCHMARK INDEX"
@@ -1654,11 +1755,24 @@ export default function VisionMarketDataPanel({
                               .toLowerCase()
                               .includes("commodities")
                           ? "COMMODITIES MARKET DEPTH"
-                          : "ORDER BOOK & MARKET DEPTH"}
+                          : activePoint.group.toLowerCase().includes("bond")
+                            ? "BONDS ORDER BOOK"
+                            : "ORDER BOOK & MARKET DEPTH"}
                 </p>
-                <h3 style={{ margin: "4px 0" }}>
-                  {activePoint.quote.symbol} · {activePoint.label}
-                </h3>
+                <div className="vision-modal-title-row">
+                  <h3 className="vision-modal-title">
+                    {activePoint.quote.symbol} · {activePoint.label}
+                  </h3>
+                  {activePoint.isin && (
+                    <span
+                      className="vision-modal-isin"
+                      title="International Securities Identification Number"
+                    >
+                      <span>ISIN Identifier</span>:{" "}
+                      <strong>{activePoint.isin}</strong>
+                    </span>
+                  )}
+                </div>
                 <span className="vision-price">
                   {formatPrice(activePoint.quote.value, "INR")}
                 </span>{" "}
@@ -1701,7 +1815,7 @@ export default function VisionMarketDataPanel({
               <div>
                 <p
                   className="vision-instrument-name"
-                  style={{ marginBottom: "16px", lineHeight: "1.5" }}
+                  style={{ marginBottom: "1rem", lineHeight: "1.5" }}
                 >
                   <strong>Benchmark Index:</strong> {activePoint.label} is a
                   weighted market index computed from its constituent equities.
@@ -1710,26 +1824,28 @@ export default function VisionMarketDataPanel({
                   index levels.
                 </p>
 
-                <div className="vision-circuits-row">
+                <div className="vision-circuits-row vision-grid-4">
                   <div className="vision-circuit-item">
-                    <dt>Day Open</dt>
-                    <dd>{formatPrice(activePoint.quote.open, "INR")}</dd>
+                    <dt title="Day Open">Day Open</dt>
+                    <dd title={formatPrice(activePoint.quote.open, "INR")}>
+                      {formatPrice(activePoint.quote.open, "INR")}
+                    </dd>
                   </div>
                   <div className="vision-circuit-item">
-                    <dt>Day High</dt>
-                    <dd className="text-success">
+                    <dt title="Day High">Day High</dt>
+                    <dd className="text-success" title={formatPrice(activePoint.quote.high, "INR")}>
                       {formatPrice(activePoint.quote.high, "INR")}
                     </dd>
                   </div>
                   <div className="vision-circuit-item">
-                    <dt>Day Low</dt>
-                    <dd className="text-danger">
+                    <dt title="Day Low">Day Low</dt>
+                    <dd className="text-danger" title={formatPrice(activePoint.quote.low, "INR")}>
                       {formatPrice(activePoint.quote.low, "INR")}
                     </dd>
                   </div>
                   <div className="vision-circuit-item">
-                    <dt>Previous Close</dt>
-                    <dd>
+                    <dt title="Previous Close">Previous Close</dt>
+                    <dd title={formatPrice(activePoint.quote.previousClose, "INR")}>
                       {formatPrice(activePoint.quote.previousClose, "INR")}
                     </dd>
                   </div>
@@ -1737,44 +1853,174 @@ export default function VisionMarketDataPanel({
               </div>
             ) : (
               <>
-                {/* Circuit Limits & Profit Data for Equities */}
-                <div className="vision-circuits-row">
-                  <div className="vision-circuit-item">
-                    <dt>Day Profit / Loss</dt>
-                    <dd
-                      className={
-                        (activePoint.quote.change ?? 0) >= 0
-                          ? "text-success"
-                          : "text-danger"
-                      }
-                    >
-                      {(activePoint.quote.change ?? 0) >= 0 ? "▲ +" : "▼ "}
-                      {formatPrice(activePoint.quote.change, "INR")} (
-                      {(activePoint.quote.changePercent ?? 0) >= 0 ? "+" : ""}
-                      {(activePoint.quote.changePercent ?? 0).toFixed(2)}%)
-                    </dd>
-                  </div>
-                  <div className="vision-circuit-item">
-                    <dt>Lower Circuit</dt>
-                    <dd className="text-danger">
-                      {formatPrice(activePoint.quote.lowerCircuit, "INR")}
-                    </dd>
-                  </div>
-                  <div className="vision-circuit-item">
-                    <dt>Upper Circuit</dt>
-                    <dd className="text-success">
-                      {formatPrice(activePoint.quote.upperCircuit, "INR")}
-                    </dd>
-                  </div>
-                  <div className="vision-circuit-item">
-                    <dt>Average Price (VWAP)</dt>
-                    <dd>
-                      {formatPrice(activePoint.quote.averagePrice, "INR")}
-                    </dd>
-                  </div>
-                </div>
+                {(activePoint.group.toLowerCase().includes("futures") ||
+                  activePoint.group.toLowerCase().includes("options") ||
+                  activePoint.group.toLowerCase().includes("commodities")) ? (
+                  <>
+                    {/* Row 1: Derivatives Metrics (Open Interest, Extrema, Lot & Expiry) */}
+                    <div className="vision-circuits-row vision-grid-5">
+                      <div className="vision-circuit-item">
+                        <dt title="Open Interest (OI)">Open Interest (OI)</dt>
+                        <dd style={{ color: "#38bdf8" }} title={formatNumber(activePoint.quote.oi)}>
+                          {activePoint.quote.oi !== null && activePoint.quote.oi !== undefined
+                            ? formatNumber(activePoint.quote.oi)
+                            : "—"}
+                        </dd>
+                      </div>
+                      <div className="vision-circuit-item">
+                        <dt title="OI Day High">OI Day High</dt>
+                        <dd className="text-success" title={formatNumber(activePoint.quote.oiDayHigh)}>
+                          {activePoint.quote.oiDayHigh !== null && activePoint.quote.oiDayHigh !== undefined
+                            ? formatNumber(activePoint.quote.oiDayHigh)
+                            : "—"}
+                        </dd>
+                      </div>
+                      <div className="vision-circuit-item">
+                        <dt title="OI Day Low">OI Day Low</dt>
+                        <dd className="text-danger" title={formatNumber(activePoint.quote.oiDayLow)}>
+                          {activePoint.quote.oiDayLow !== null && activePoint.quote.oiDayLow !== undefined
+                            ? formatNumber(activePoint.quote.oiDayLow)
+                            : "—"}
+                        </dd>
+                      </div>
+                      <div className="vision-circuit-item">
+                        <dt title="Contract Lot Size">Contract Lot Size</dt>
+                        <dd title={activePoint.lotSize ? `${activePoint.lotSize} units` : "—"}>
+                          {activePoint.lotSize ? `${activePoint.lotSize} units` : "—"}
+                          {activePoint.tickSize && (
+                            <span className="vision-inline-tick" title="Minimum Price Tick">
+                              (Tick: ₹{activePoint.tickSize})
+                            </span>
+                          )}
+                        </dd>
+                      </div>
+                      <div className="vision-circuit-item">
+                        <dt title="Expiry Date">Expiry Date</dt>
+                        <dd style={{ color: "#c084fc" }} title={activePoint.expiry || "—"}>
+                          {activePoint.expiry || "—"}
+                        </dd>
+                      </div>
+                    </div>
 
-                {/* 5-Level Bid/Ask Order Book */}
+                    {/* Row 2: Circuit Limits & VWAP */}
+                    <div className="vision-circuits-row vision-grid-3">
+                      <div className="vision-circuit-item">
+                        <dt title="Lower Circuit">Lower Circuit</dt>
+                        <dd className="text-danger" title={formatPrice(activePoint.quote.lowerCircuit, "INR")}>
+                          {formatPrice(activePoint.quote.lowerCircuit, "INR")}
+                        </dd>
+                      </div>
+                      <div className="vision-circuit-item">
+                        <dt title="Upper Circuit">Upper Circuit</dt>
+                        <dd className="text-success" title={formatPrice(activePoint.quote.upperCircuit, "INR")}>
+                          {formatPrice(activePoint.quote.upperCircuit, "INR")}
+                        </dd>
+                      </div>
+                      <div className="vision-circuit-item">
+                        <dt title="Average Price (VWAP)">Average Price (VWAP)</dt>
+                        <dd title={formatPrice(activePoint.quote.averagePrice, "INR")}>
+                          {formatPrice(activePoint.quote.averagePrice, "INR")}
+                        </dd>
+                      </div>
+                    </div>
+
+                    {/* Row 3: Extended Contract Specifications (OI Change, Strike Price, LTQ) */}
+                    {((activePoint.quote.oiChange !== null && activePoint.quote.oiChange !== undefined) ||
+                      activePoint.strikePrice ||
+                      (activePoint.quote.lastQuantity !== null && activePoint.quote.lastQuantity !== undefined && activePoint.quote.lastQuantity > 0)) && (
+                      <div className="vision-circuits-row vision-grid-sub">
+                        {activePoint.quote.oiChange !== null && activePoint.quote.oiChange !== undefined && (
+                          <div className="vision-circuit-item">
+                            <dt title="OI Change">OI Change</dt>
+                            <dd
+                              className={activePoint.quote.oiChange >= 0 ? "text-success" : "text-danger"}
+                              title={`${activePoint.quote.oiChange >= 0 ? "+" : ""}${formatNumber(activePoint.quote.oiChange)}`}
+                            >
+                              {activePoint.quote.oiChange >= 0 ? "+" : ""}{formatNumber(activePoint.quote.oiChange)}
+                              {activePoint.quote.oiChangePercent !== null && activePoint.quote.oiChangePercent !== undefined
+                                ? ` (${activePoint.quote.oiChangePercent >= 0 ? "+" : ""}${activePoint.quote.oiChangePercent.toFixed(1)}%)`
+                                : ""}
+                            </dd>
+                          </div>
+                        )}
+                        {activePoint.strikePrice && (
+                          <div className="vision-circuit-item">
+                            <dt title="Strike Price">Strike Price</dt>
+                            <dd title={formatPrice(activePoint.strikePrice, "INR")}>
+                              {formatPrice(activePoint.strikePrice, "INR")}
+                            </dd>
+                          </div>
+                        )}
+                        {activePoint.quote.lastQuantity !== null && activePoint.quote.lastQuantity !== undefined && activePoint.quote.lastQuantity > 0 && (
+                          <div className="vision-circuit-item">
+                            <dt title="Last Trade Qty (LTQ)">Last Trade Qty (LTQ)</dt>
+                            <dd title={`${formatNumber(activePoint.quote.lastQuantity)} units`}>
+                              {formatNumber(activePoint.quote.lastQuantity)} units
+                            </dd>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    {/* Equities & Bonds: Row 1 Circuit Limits & VWAP */}
+                    <div className="vision-circuits-row vision-grid-3">
+                      <div className="vision-circuit-item">
+                        <dt title="Lower Circuit">Lower Circuit</dt>
+                        <dd className="text-danger" title={formatPrice(activePoint.quote.lowerCircuit, "INR")}>
+                          {formatPrice(activePoint.quote.lowerCircuit, "INR")}
+                        </dd>
+                      </div>
+                      <div className="vision-circuit-item">
+                        <dt title="Upper Circuit">Upper Circuit</dt>
+                        <dd className="text-success" title={formatPrice(activePoint.quote.upperCircuit, "INR")}>
+                          {formatPrice(activePoint.quote.upperCircuit, "INR")}
+                        </dd>
+                      </div>
+                      <div className="vision-circuit-item">
+                        <dt title="Average Price (VWAP)">Average Price (VWAP)</dt>
+                        <dd title={formatPrice(activePoint.quote.averagePrice, "INR")}>
+                          {formatPrice(activePoint.quote.averagePrice, "INR")}
+                        </dd>
+                      </div>
+                    </div>
+
+                    {/* Equities & Bonds: Row 2 52-Week Range & Last Trade Metrics */}
+                    {((activePoint.quote.yearlyLow !== null && activePoint.quote.yearlyLow !== undefined) ||
+                      (activePoint.quote.yearlyHigh !== null && activePoint.quote.yearlyHigh !== undefined) ||
+                      (activePoint.quote.lastQuantity !== null && activePoint.quote.lastQuantity !== undefined && activePoint.quote.lastQuantity > 0)) && (
+                      <div className="vision-circuits-row vision-grid-sub">
+                        {activePoint.quote.yearlyLow !== null && activePoint.quote.yearlyLow !== undefined && (
+                          <div className="vision-circuit-item">
+                            <dt title="52-Week Low">52-Week Low</dt>
+                            <dd className="text-danger" title={formatPrice(activePoint.quote.yearlyLow, "INR")}>
+                              {formatPrice(activePoint.quote.yearlyLow, "INR")}
+                            </dd>
+                          </div>
+                        )}
+                        {activePoint.quote.yearlyHigh !== null && activePoint.quote.yearlyHigh !== undefined && (
+                          <div className="vision-circuit-item">
+                            <dt title="52-Week High">52-Week High</dt>
+                            <dd className="text-success" title={formatPrice(activePoint.quote.yearlyHigh, "INR")}>
+                              {formatPrice(activePoint.quote.yearlyHigh, "INR")}
+                            </dd>
+                          </div>
+                        )}
+                        {activePoint.quote.lastQuantity !== null && activePoint.quote.lastQuantity !== undefined && activePoint.quote.lastQuantity > 0 && (
+                          <div className="vision-circuit-item">
+                            <dt title="Last Trade Qty (LTQ)">Last Trade Qty (LTQ)</dt>
+                            <dd title={`${formatNumber(activePoint.quote.lastQuantity)} units`}>
+                              {formatNumber(activePoint.quote.lastQuantity)} units
+                            </dd>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </>
+                )}
+
+{/* 5-Level Bid/Ask Order Book */}
                 <div className="vision-depth-grid">
                   {/* Buy Bids */}
                   <div className="vision-depth-col buy">
@@ -1896,20 +2142,20 @@ export default function VisionMarketDataPanel({
             <div
               className="vision-modal-footer-info"
               style={{
-                marginTop: "20px",
-                paddingTop: "14px",
-                borderTop: "1px solid var(--vision-border, rgba(255, 255, 255, 0.08))",
+                marginTop: "1.25rem",
+                paddingTop: "0.875rem",
+                borderTop: "0.0625rem solid var(--vision-border, rgba(255, 255, 255, 0.08))",
                 display: "flex",
                 justifyContent: "space-between",
                 alignItems: "center",
                 flexWrap: "wrap",
-                gap: "10px",
+                gap: "0.625rem",
               }}
             >
-              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
                 <span
                   style={{
-                    fontSize: "0.75rem",
+                    fontSize: "0.6875rem",
                     color: "var(--muted, #94a0b2)",
                     textTransform: "uppercase",
                     letterSpacing: "0.05em",
@@ -1920,7 +2166,7 @@ export default function VisionMarketDataPanel({
                 </span>
                 <span
                   style={{
-                    fontSize: "0.8rem",
+                    fontSize: "0.75rem",
                     fontWeight: 600,
                     color: marketStatus.isOpen ? "#10b981" : "#eab308",
                   }}
@@ -1933,14 +2179,42 @@ export default function VisionMarketDataPanel({
                 style={{
                   display: "flex",
                   alignItems: "center",
-                  gap: "16px",
+                  gap: "1rem",
                   flexWrap: "wrap",
                 }}
               >
+                {activePoint.quote.lastQuantity !== null && activePoint.quote.lastQuantity !== undefined && activePoint.quote.lastQuantity > 0 && (
+                  <span
+                    className="vision-instrument-name"
+                    style={{ fontSize: "0.75rem" }}
+                    title="Last executed trade quantity on exchange (LTQ)"
+                  >
+                    LTQ: <strong>{formatNumber(activePoint.quote.lastQuantity)}</strong>
+                  </span>
+                )}
+                {activePoint.tickSize && (
+                  <span
+                    className="vision-instrument-name"
+                    style={{ fontSize: "0.75rem", fontWeight: 500 }}
+                    title="Minimum exchange price movement tick size"
+                  >
+                    <span>Tick Size</span>:{" "}
+                    <strong style={{ fontWeight: 600 }}>₹{activePoint.tickSize}</strong>
+                  </span>
+                )}
+                {activePoint.quote.averagePrice && (
+                  <span
+                    className="vision-instrument-name"
+                    style={{ fontSize: "0.75rem" }}
+                    title="Volume-Weighted Average Traded Price (VWAP)"
+                  >
+                    VWAP: <strong>{formatPrice(activePoint.quote.averagePrice, "INR")}</strong>
+                  </span>
+                )}
                 {activePoint.quote.lastTradeTimeMs && (
                   <span
                     className="vision-instrument-name"
-                    style={{ fontSize: "0.8rem" }}
+                    style={{ fontSize: "0.75rem" }}
                     title="Last executed trade timestamp on exchange"
                   >
                     Last Trade:{" "}
@@ -1949,7 +2223,7 @@ export default function VisionMarketDataPanel({
                 )}
                 <span
                   className="vision-instrument-name"
-                  style={{ fontSize: "0.8rem" }}
+                  style={{ fontSize: "0.75rem" }}
                   title={
                     marketStatus.isOpen
                       ? "Timestamp when quote was received"

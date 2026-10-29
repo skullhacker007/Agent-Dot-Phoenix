@@ -103,30 +103,43 @@ export const DEFAULT_INDIAN_EQUITIES: InstrumentConfig[] = [
 ];
 
 export const DEFAULT_INDIAN_FUTURES: InstrumentConfig[] = [
-  { instrument: "NSE_FO|48699", label: "Bank Nifty Futures", group: "NSE futures" },
-  { instrument: "NSE_FO|59154", label: "Wipro Futures", group: "NSE futures" },
-  { instrument: "NSE_FO|59150", label: "Vedanta Futures", group: "NSE futures" },
-  { instrument: "NSE_FO|59152", label: "Voltas Futures", group: "NSE futures" },
-  { instrument: "NSE_FO|59155", label: "Yes Bank Futures", group: "NSE futures" },
-  { instrument: "NSE_FO|59156", label: "Zydus Life Futures", group: "NSE futures" },
+  { instrument: "NSE_FO|48699", label: "Bank Nifty Futures", group: "NSE futures", lotSize: 15, expiry: "2026-11-26", tickSize: 0.05 },
+  { instrument: "NSE_FO|59154", label: "Wipro Futures", group: "NSE futures", lotSize: 1500, expiry: "2026-11-26", tickSize: 0.05 },
+  { instrument: "NSE_FO|59150", label: "Vedanta Futures", group: "NSE futures", lotSize: 2000, expiry: "2026-11-26", tickSize: 0.05 },
+  { instrument: "NSE_FO|59152", label: "Voltas Futures", group: "NSE futures", lotSize: 600, expiry: "2026-11-26", tickSize: 0.05 },
+  { instrument: "NSE_FO|59155", label: "Yes Bank Futures", group: "NSE futures", lotSize: 25000, expiry: "2026-11-26", tickSize: 0.05 },
+  { instrument: "NSE_FO|59156", label: "Zydus Life Futures", group: "NSE futures", lotSize: 900, expiry: "2026-11-26", tickSize: 0.05 },
 ];
 
 export const DEFAULT_INDIAN_OPTIONS: InstrumentConfig[] = [
-  { instrument: "NSE_FO|50978", label: "Nifty 27000 CE (Call)", group: "NSE options" },
-  { instrument: "NSE_FO|50979", label: "Nifty 27000 PE (Put)", group: "NSE options" },
-  { instrument: "NSE_FO|45149", label: "Nifty 21150 CE (Call)", group: "NSE options" },
-  { instrument: "NSE_FO|45150", label: "Nifty 21150 PE (Put)", group: "NSE options" },
-  { instrument: "NSE_FO|45155", label: "Nifty 21300 CE (Call)", group: "NSE options" },
-  { instrument: "NSE_FO|45156", label: "Nifty 21300 PE (Put)", group: "NSE options" },
+  { instrument: "NSE_FO|50978", label: "Nifty 27000 CE (Call)", group: "NSE options", lotSize: 25, strikePrice: 27000, expiry: "2026-11-26", tickSize: 0.05 },
+  { instrument: "NSE_FO|50979", label: "Nifty 27000 PE (Put)", group: "NSE options", lotSize: 25, strikePrice: 27000, expiry: "2026-11-26", tickSize: 0.05 },
+  { instrument: "NSE_FO|45149", label: "Nifty 21150 CE (Call)", group: "NSE options", lotSize: 25, strikePrice: 21150, expiry: "2026-11-26", tickSize: 0.05 },
+  { instrument: "NSE_FO|45150", label: "Nifty 21150 PE (Put)", group: "NSE options", lotSize: 25, strikePrice: 21150, expiry: "2026-11-26", tickSize: 0.05 },
+  { instrument: "NSE_FO|45155", label: "Nifty 21300 CE (Call)", group: "NSE options", lotSize: 25, strikePrice: 21300, expiry: "2026-11-26", tickSize: 0.05 },
+  { instrument: "NSE_FO|45156", label: "Nifty 21300 PE (Put)", group: "NSE options", lotSize: 25, strikePrice: 21300, expiry: "2026-11-26", tickSize: 0.05 },
 ];
 
 export const DEFAULT_INDIAN_COMMODITIES: InstrumentConfig[] = [
-  { instrument: "MCX_FO|559933", label: "Gold Futures", group: "MCX commodities" },
-  { instrument: "MCX_FO|579304", label: "Silver Futures", group: "MCX commodities" },
-  { instrument: "MCX_FO|584777", label: "Crude Oil Futures", group: "MCX commodities" },
-  { instrument: "MCX_FO|570750", label: "Natural Gas Futures", group: "MCX commodities" },
-  { instrument: "MCX_FO|587161", label: "Copper Futures", group: "MCX commodities" },
-  { instrument: "MCX_FO|579520", label: "Silver 226000 PE Option", group: "MCX commodities" },
+  { instrument: "MCX_FO|559933", label: "Gold Futures", group: "MCX commodities", lotSize: 100, expiry: "2026-12-05", tickSize: 1.0 },
+  { instrument: "MCX_FO|579304", label: "Silver Futures", group: "MCX commodities", lotSize: 30, expiry: "2026-12-05", tickSize: 1.0 },
+  { instrument: "MCX_FO|584777", label: "Crude Oil Futures", group: "MCX commodities", lotSize: 100, expiry: "2026-11-19", tickSize: 1.0 },
+  { instrument: "MCX_FO|570750", label: "Natural Gas Futures", group: "MCX commodities", lotSize: 1250, expiry: "2026-11-25", tickSize: 0.1 },
+  { instrument: "MCX_FO|587161", label: "Copper Futures", group: "MCX commodities", lotSize: 2500, expiry: "2026-11-30", tickSize: 0.05 },
+  { instrument: "MCX_FO|579520", label: "Silver 226000 PE Option", group: "MCX commodities", lotSize: 30, strikePrice: 226000, expiry: "2026-12-05", tickSize: 1.0 },
+];
+
+export const DEFAULT_INDIAN_BONDS: InstrumentConfig[] = [
+  { instrument: "NSE_EQ|IN0020230085", label: "7.18% GS 2033 (10Y GOI Benchmark Bond)", group: "NSE bonds", symbol: "718GS2033", isin: "IN0020230085" },
+  { instrument: "NSE_EQ|IN0020240019", label: "7.10% GS 2034 (10Y GOI Benchmark Bond)", group: "NSE bonds", symbol: "710GS2034", isin: "IN0020240019" },
+  { instrument: "NSE_EQ|IN0020200153", label: "7.26% GS 2032 (GOI Sovereign Bond)", group: "NSE bonds", symbol: "726GS2032", isin: "IN0020200153" },
+  { instrument: "NSE_EQ|IN0020220037", label: "7.38% GS 2027 (5Y GOI Sovereign Bond)", group: "NSE bonds", symbol: "738GS2027", isin: "IN0020220037" },
+  { instrument: "NSE_EQ|INE002A08427", label: "Reliance Industries 7.79% NCD", group: "NSE bonds", symbol: "RIL-NCD", isin: "INE002A08427" },
+  { instrument: "NSE_EQ|INE040A08419", label: "HDFC Bank 7.84% Tier 2 Bond", group: "NSE bonds", symbol: "HDFCBK-BOND", isin: "INE040A08419" },
+  { instrument: "NSE_EQ|IN0020210186", label: "Sovereign Gold Bond 2.50% 2030", group: "NSE bonds", symbol: "SGBMAR30", isin: "IN0020210186" },
+  { instrument: "NSE_EQ|INE121A08OE2", label: "REC Limited 7.54% Tax Free Bond", group: "NSE bonds", symbol: "REC-BOND", isin: "INE121A08OE2" },
+  { instrument: "NSE_EQ|INE053F08115", label: "IRFC 7.53% Tax Free Bond 2031", group: "NSE bonds", symbol: "IRFC-BOND", isin: "INE053F08115" },
+  { instrument: "NSE_EQ|INE514E08ET9", label: "Power Finance Corp 7.55% NCD", group: "NSE bonds", symbol: "PFC-NCD", isin: "INE514E08ET9" },
 ];
 
 /**
@@ -147,8 +160,22 @@ const masterRowSchema = z
     exchange: z.string().nullish(),
     isin: z.string().nullish(),
     instrument_type: z.string().nullish(),
+    lot_size: z.coerce.number().nullish(),
+    expiry: z.union([z.string(), z.number()]).nullish(),
+    strike: z.coerce.number().nullish(),
+    strike_price: z.coerce.number().nullish(),
+    tick_size: z.coerce.number().nullish(),
   })
   .passthrough();
+
+export function parseExpiry(val: unknown): string | undefined {
+  if (typeof val === "string" && val.trim().length > 0) return val.trim();
+  if (typeof val === "number" && val > 0) {
+    const d = new Date(val);
+    if (!Number.isNaN(d.getTime())) return d.toISOString().split("T")[0];
+  }
+  return undefined;
+}
 
 const masterFileSchema = z.array(masterRowSchema);
 
@@ -160,6 +187,7 @@ export type IndianUniverse = {
   futures: InstrumentConfig[];
   options: InstrumentConfig[];
   commodities: InstrumentConfig[];
+  bonds: InstrumentConfig[];
 };
 
 /** Gzip magic bytes: the file is served compressed but without Content-Encoding. */
@@ -314,6 +342,61 @@ export function isEquityRow(row: MasterRow): boolean {
   return true;
 }
 
+export function isBondRow(row: MasterRow): boolean {
+  const segment = row.segment?.trim().toUpperCase();
+  const type = row.instrument_type?.trim().toUpperCase();
+  const exchange = row.exchange?.trim().toUpperCase();
+  const key = row.instrument_key?.trim().toUpperCase();
+
+  const isNse =
+    segment === "NSE_EQ" ||
+    (segment === "NSE" && exchange === "NSE") ||
+    key?.startsWith("NSE_EQ|");
+  if (!isNse) return false;
+
+  const symbol = (row.trading_symbol || row.tradingsymbol || "").trim().toUpperCase();
+  const name = (row.name || "").toUpperCase();
+
+  // Explicit debt instrument types in Upstox instrument master
+  const debtTypes = ["BOND", "NCD", "CP", "GS", "GB", "TB", "SG", "DEBENTURE"];
+  if (type && debtTypes.includes(type)) {
+    return true;
+  }
+
+  // Tickers starting with digits (coupon-bearing bonds, e.g. 718GS33, 1020CCSP27, 686RJ52, 743PN48)
+  if (/^\d/.test(symbol)) {
+    return true;
+  }
+
+  // Specific debt or sovereign bond ticker suffixes / prefixes
+  if (
+    symbol.endsWith("-SG") ||
+    symbol.endsWith("-GB") ||
+    symbol.startsWith("SGB") ||
+    symbol.endsWith("-NCD") ||
+    symbol.endsWith("-CP")
+  ) {
+    return true;
+  }
+
+  // Names indicating debt securities
+  if (
+    name.includes("BOND") ||
+    name.includes("SDL ") ||
+    name.includes("NCD") ||
+    name.includes("DEBENTURE") ||
+    name.includes("COMMERCIAL PAPER") ||
+    name.includes("GOVT STOCK") ||
+    name.includes("BENCHMARK") ||
+    name.includes("SOVEREIGN GOLD") ||
+    /\d+\.\d+%\s*\d{4}/.test(name)
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
 function isIndexRow(row: MasterRow): boolean {
   const segment = row.segment?.trim().toUpperCase();
   const type = row.instrument_type?.trim().toUpperCase();
@@ -324,13 +407,23 @@ function isIndexRow(row: MasterRow): boolean {
 /**
  * Discovers the live Indian instrument universe.
  *
- * Prioritizes benchmark indices and high-liquidity bellwether stocks for
- * financial analytics, augmented by the upstream Upstox instrument master.
+ * Prioritizes benchmark indices, high-liquidity bellwether stocks, derivatives,
+ * commodities, and bonds for financial analytics, augmented by the upstream
+ * Upstox instrument master.
  * Always guarantees valid quotable instruments even if Upstox CDN network
  * is delayed.
  */
 export async function discoverIndianUniverse(
-  limitsOrEquityLimit: { equities?: number; indices?: number; futures?: number; options?: number; commodities?: number } | number = 30,
+  limitsOrEquityLimit:
+    | {
+        equities?: number;
+        indices?: number;
+        futures?: number;
+        options?: number;
+        commodities?: number;
+        bonds?: number;
+      }
+    | number = 30,
   indexLimitOrSignal?: number | AbortSignal,
   maybeSignal?: AbortSignal,
 ): Promise<IndianUniverse> {
@@ -340,9 +433,10 @@ export async function discoverIndianUniverse(
   const futuresLimit = isLegacy ? 6 : (limitsOrEquityLimit.futures ?? 6);
   const optionsLimit = isLegacy ? 6 : (limitsOrEquityLimit.options ?? 6);
   const commoditiesLimit = isLegacy ? 4 : (limitsOrEquityLimit.commodities ?? 4);
+  const bondsLimit = isLegacy ? 6 : (limitsOrEquityLimit.bonds ?? 6);
   const signal = isLegacy ? maybeSignal : (indexLimitOrSignal instanceof AbortSignal ? indexLimitOrSignal : undefined);
 
-  const cacheKey = `upstox:universe:v5:${equityLimit}:${indexLimit}:${futuresLimit}:${optionsLimit}:${commoditiesLimit}`;
+  const cacheKey = `upstox:universe:v6:${equityLimit}:${indexLimit}:${futuresLimit}:${optionsLimit}:${commoditiesLimit}:${bondsLimit}`;
 
   return withDiscoveryCache(
     cacheKey,
@@ -353,6 +447,7 @@ export async function discoverIndianUniverse(
       const futures: InstrumentConfig[] = [...DEFAULT_INDIAN_FUTURES.slice(0, futuresLimit)];
       const options: InstrumentConfig[] = [...DEFAULT_INDIAN_OPTIONS.slice(0, optionsLimit)];
       const commodities: InstrumentConfig[] = [...DEFAULT_INDIAN_COMMODITIES.slice(0, commoditiesLimit)];
+      const bonds: InstrumentConfig[] = [...DEFAULT_INDIAN_BONDS.slice(0, bondsLimit)];
 
       const seenKeys = new Set<string>([
         ...equities.map((e) => e.instrument),
@@ -360,24 +455,46 @@ export async function discoverIndianUniverse(
         ...futures.map((f) => f.instrument),
         ...options.map((o) => o.instrument),
         ...commodities.map((c) => c.instrument),
+        ...bonds.map((b) => b.instrument),
       ]);
 
       try {
-        if (equities.length < equityLimit) {
+        if (equities.length < equityLimit || bonds.length < bondsLimit) {
           const rows = await loadMaster(EQUITY_MASTER_FILES, signal);
           for (const row of rows) {
-            if (equities.length >= equityLimit) break;
-            if (!isEquityRow(row)) continue;
-            const instrument = deriveInstrumentKey(row);
-            if (!instrument || seenKeys.has(instrument)) continue;
-            seenKeys.add(instrument);
-            const symbol = (row.trading_symbol || row.tradingsymbol || "").trim().toUpperCase() || undefined;
-            equities.push({
-              instrument,
-              label: labelFor(row, instrument),
-              group: "NSE equities",
-              symbol,
-            });
+            if (equities.length >= equityLimit && bonds.length >= bondsLimit) break;
+            if (equities.length < equityLimit && isEquityRow(row)) {
+              const instrument = deriveInstrumentKey(row);
+              if (instrument && !seenKeys.has(instrument)) {
+                seenKeys.add(instrument);
+                const symbol = (row.trading_symbol || row.tradingsymbol || "").trim().toUpperCase() || undefined;
+                equities.push({
+                  instrument,
+                  label: labelFor(row, instrument),
+                  group: "NSE equities",
+                  symbol,
+                  lotSize: row.lot_size ? Number(row.lot_size) : undefined,
+                  tickSize: row.tick_size ? Number(row.tick_size) : undefined,
+                  isin: (row.isin || (instrument.includes('|') && instrument.split('|')[1].startsWith('IN') ? instrument.split('|')[1] : undefined))?.trim() || undefined,
+                });
+              }
+            } else if (bonds.length < bondsLimit && isBondRow(row)) {
+              const instrument = deriveInstrumentKey(row);
+              if (instrument && !seenKeys.has(instrument)) {
+                seenKeys.add(instrument);
+                const symbol = (row.trading_symbol || row.tradingsymbol || "").trim().toUpperCase() || undefined;
+                bonds.push({
+                  instrument,
+                  label: labelFor(row, instrument),
+                  group: "NSE bonds",
+                  symbol,
+                  lotSize: row.lot_size ? Number(row.lot_size) : undefined,
+                  expiry: parseExpiry(row.expiry),
+                  tickSize: row.tick_size ? Number(row.tick_size) : undefined,
+                  isin: (row.isin || (instrument.includes('|') && instrument.split('|')[1].startsWith('IN') ? instrument.split('|')[1] : undefined))?.trim() || undefined,
+                });
+              }
+            }
           }
         }
 
@@ -398,12 +515,12 @@ export async function discoverIndianUniverse(
         }
       } catch (err) {
         // If upstream CDN master download fails, we already have our top liquid instruments
-        if (equities.length === 0 && indices.length === 0) {
+        if (equities.length === 0 && indices.length === 0 && bonds.length === 0) {
           throw err;
         }
       }
 
-      return { equities, indices, futures, options, commodities };
+      return { equities, indices, futures, options, commodities, bonds };
     },
   );
 }

@@ -15,6 +15,16 @@ export type InstrumentConfig = {
   group: string;
   /** Clean trading ticker symbol (e.g. RELIANCE, TCS, INFY). */
   symbol?: string;
+  /** Contract lot size for derivatives. */
+  lotSize?: number;
+  /** Expiration date string (YYYY-MM-DD) for futures & options. */
+  expiry?: string;
+  /** Option contract strike price. */
+  strikePrice?: number;
+  /** Minimum price movement tick size. */
+  tickSize?: number;
+  /** International Securities Identification Number. */
+  isin?: string;
 };
 
 /**
@@ -37,11 +47,12 @@ export type IndianLimits = {
   futures: number;
   options: number;
   commodities: number;
+  bonds: number;
 };
 
 /**
  * Allocates the Indian market data universe across asset classes:
- * Stocks (equities), Indices, Futures, Options, and Commodities.
+ * Stocks (equities), Indices, Futures, Options, Commodities, and Bonds.
  * Scales dynamically up to Upstox's max batch limit of 500.
  */
 export function resolveIndianLimits(): IndianLimits {
@@ -56,7 +67,8 @@ export function resolveIndianLimits(): IndianLimits {
   const futures = 8;
   const options = 8;
   const commodities = 6;
-  return { equities, indices, futures, options, commodities };
+  const bonds = 8;
+  return { equities, indices, futures, options, commodities, bonds };
 }
 
 /**

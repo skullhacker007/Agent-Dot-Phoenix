@@ -12,6 +12,7 @@ describe("buildVisionMarketContext", () => {
         futures: 6,
         options: 6,
         commodities: 6,
+        bonds: 6,
         total: 70,
       },
       compactPoints: [
@@ -57,7 +58,7 @@ describe("buildVisionMarketContext", () => {
 
     expect(context).toContain("LIVE MARKET DATA CONTEXT");
     expect(context).toContain("Total Instruments Tracked: 70");
-    expect(context).toContain("Stocks: 45 | Indices: 7 | Futures: 6 | Options: 6 | Commodities: 6");
+    expect(context).toContain("Stocks: 45 | Indices: 7 | Futures: 6 | Options: 6 | Commodities: 6 | Bonds: 6");
     expect(context).toContain("User Active Dashboard Tab: OPTIONS");
     expect(context).toContain("Nifty 22500 CE");
     expect(context).toContain("Gold Futures");
@@ -166,5 +167,119 @@ describe("buildVisionMarketContext", () => {
     expect(context).toContain("ICICI Bank (ICICIBANK)");
     expect(context).toContain("BENCHMARK INDICES LIST (Total: 1):");
     expect(context).toContain("Nifty Bank");
+  });
+  it("correctly classifies debt securities and sovereign bonds under bonds", () => {
+    const context = buildVisionMarketContext({
+      compactPoints: [
+        {
+          symbol: "718GS2033",
+          label: "7.18% GS 2033",
+          group: "NSE bonds",
+          value: 100.25,
+          change: 0.15,
+          changePercent: 0.15,
+          volume: 50000,
+        },
+        {
+          symbol: "SGBMAR30",
+          label: "Sovereign Gold Bond 2030",
+          group: "NSE bonds",
+          value: 6500.0,
+          change: 45.0,
+          changePercent: 0.7,
+          volume: 12000,
+        },
+        {
+          symbol: "RELIANCE",
+          label: "Reliance Industries",
+          group: "NSE equities",
+          value: 2980.5,
+          change: 35.5,
+          changePercent: 1.2,
+          volume: 2500000,
+        },
+      ],
+    });
+
+    expect(context).toContain("Stocks: 1 | Indices: 0 | Futures: 0 | Options: 0 | Commodities: 0 | Bonds: 2");
+    expect(context).toContain("BONDS & DEBT SECURITIES LIST (Total: 2):");
+    expect(context).toContain("**7.18% GS 2033** (718GS2033)");
+    expect(context).toContain("**Sovereign Gold Bond 2030** (SGBMAR30)");
+  });
+  it("includes Open Interest, lot size, and expiry in derivatives context for AI", () => {
+    const context = buildVisionMarketContext({
+      compactPoints: [
+        {
+          symbol: "NIFTY26NOV27000CE",
+          label: "Nifty 27000 CE",
+          group: "NSE options",
+          value: 125.5,
+          change: 15.2,
+          changePercent: 13.8,
+          volume: 2500000,
+          oi: 4500000,
+          lotSize: 25,
+          expiry: "2026-11-26",
+        },
+      ],
+    });
+
+    expect(context).toContain("OI: 45.00 L");
+    expect(context).toContain("Lot: 25");
+    expect(context).toContain("Expiry: 2026-11-26");
+  });
+  it("formats 52-week boundaries, VWAP, OI changes, and bond ISIN for AI context", () => {
+    const context = buildVisionMarketContext({
+      compactPoints: [
+        {
+          symbol: "TCS",
+          label: "Tata Consultancy Services",
+          group: "NSE equities",
+          value: 4150.0,
+          change: 25.0,
+          changePercent: 0.6,
+          volume: 1200000,
+          high: 4180.0,
+          low: 4120.0,
+          yearlyHigh: 4500.0,
+          yearlyLow: 3400.0,
+          averagePrice: 4145.5,
+        },
+        {
+          symbol: "NIFTY26NOV27000CE",
+          label: "Nifty 27000 CE",
+          group: "NSE options",
+          value: 125.5,
+          change: 15.2,
+          changePercent: 13.8,
+          volume: 2500000,
+          oi: 4500000,
+          oiChange: 350000,
+          oiChangePercent: 8.4,
+          lotSize: 25,
+          expiry: "2026-11-26",
+        },
+        {
+          symbol: "718GS2033",
+          label: "7.18% GS 2033",
+          group: "NSE bonds",
+          value: 100.25,
+          change: 0.15,
+          changePercent: 0.15,
+          volume: 50000,
+          isin: "IN0020230085",
+        },
+      ],
+    });
+
+    // Stock 52W range & VWAP
+    expect(context).toContain("52W: [₹3,400.00 - ₹4,500.00]");
+    expect(context).toContain("VWAP: ₹4,145.50");
+
+    // Options OI change
+    expect(context).toContain("OI: 45.00 L (+3.50 L / +8.4%)");
+
+    // Bond ISIN
+    expect(context).toContain("ISIN: IN0020230085");
   });
 });

@@ -38,6 +38,7 @@ export const requestSchema = z
             futures: z.number().optional(),
             options: z.number().optional(),
             commodities: z.number().optional(),
+            bonds: z.number().optional(),
             total: z.number().optional(),
           })
           .optional(),
@@ -56,6 +57,27 @@ export const requestSchema = z
               high: z.number().nullable().optional(),
               low: z.number().nullable().optional(),
               open: z.number().nullable().optional(),
+              oi: z.number().nullable().optional(),
+              oiDayHigh: z.number().nullable().optional(),
+              oiDayLow: z.number().nullable().optional(),
+              prevOi: z.number().nullable().optional(),
+              oiChange: z.number().nullable().optional(),
+              oiChangePercent: z.number().nullable().optional(),
+              yearlyHigh: z.number().nullable().optional(),
+              yearlyLow: z.number().nullable().optional(),
+              lastQuantity: z.number().nullable().optional(),
+              totalBuyQuantity: z.number().nullable().optional(),
+              totalSellQuantity: z.number().nullable().optional(),
+              lowerCircuit: z.number().nullable().optional(),
+              upperCircuit: z.number().nullable().optional(),
+              close: z.number().nullable().optional(),
+              previousClose: z.number().nullable().optional(),
+              averagePrice: z.number().nullable().optional(),
+              expiry: z.string().nullable().optional(),
+              lotSize: z.number().nullable().optional(),
+              strikePrice: z.number().nullable().optional(),
+              tickSize: z.number().nullable().optional(),
+              isin: z.string().nullable().optional(),
             }),
           )
           .optional(),
@@ -83,7 +105,7 @@ export const teamInstructions: Record<TeamId, string> = {
   ULTRON:
     "You are Ultron, a defensive cybersecurity solutions assistant. Focus on secure design, authorized defensive assessment, detection, incident response, and remediation. Do not provide instructions, code, or operational steps to compromise systems, evade detection, steal credentials, deploy malware, or access systems without authorization. Keep security guidance bounded to systems the user owns or is authorized to protect.",
   VISION:
-    "You are Vision, an elite quantitative financial analytics assistant. You have full, direct real-time access to the active Indian financial markets dashboard (NSE equities, benchmark indices, derivatives futures & options, and MCX commodities) streamed via Upstox API v2. Provide clear, data-driven analysis with exact figures, counts, price levels, and market breadth insights.",
+    "You are Vision, an elite quantitative financial analytics assistant. You have full, direct real-time access to the active Indian financial markets dashboard (NSE equities, benchmark indices, derivatives futures & options, MCX commodities, and Bonds) streamed via Upstox API v2. Provide clear, data-driven analysis with exact figures, counts, price levels, Open Interest (OI) metrics, 52-week boundaries, VWAP, circuit limits, and market breadth insights.",
 };
 
 export const RESPONSE_CONCISENESS_RULES = `

@@ -453,33 +453,73 @@
   display: flex;
   flex-direction: column;
   gap: 0.125rem;
+  min-width: 0;
 }
 
 .vision-instrument-symbol {
-  font-weight: 700;
-  font-size: 0.90625rem;
-  display: flex;
-  align-items: center;
-  gap: 0.375rem;
-}
-
-.vision-instrument-tag {
-  font-size: 0.625rem;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  padding: 0.125rem 0.375rem;
-  border-radius: 0.25rem;
-  background: color-mix(in srgb, currentColor 10%, transparent);
-  color: var(--muted, #94a0b2);
+  font-weight: 600;
+  font-size: 0.84375rem;
+  letter-spacing: -0.01em;
+  color: var(--foreground, #f8fafc);
+  line-height: 1.2;
 }
 
 .vision-instrument-name {
-  font-size: 0.75rem;
+  font-size: 0.6875rem;
+  font-weight: 400;
   color: var(--muted, #94a0b2);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   min-width: 0;
+  line-height: 1.25;
+}
+
+.vision-instrument-tags {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  margin-top: 0.0625rem;
+}
+
+.vision-instrument-tag {
+  font-size: 0.5625rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  padding: 0.0625rem 0.3125rem;
+  border-radius: 0.25rem;
+  background: color-mix(in srgb, currentColor 10%, transparent);
+  color: var(--muted, #94a0b2);
+  display: inline-flex;
+  align-items: center;
+  line-height: 1.2;
+}
+
+.vision-tag-expiry {
+  background: rgba(147, 51, 234, 0.12);
+  color: #c084fc;
+  border: 0.0625rem solid rgba(147, 51, 234, 0.25);
+}
+
+.vision-tag-lot {
+  background: rgba(59, 130, 246, 0.12);
+  color: #60a5fa;
+  border: 0.0625rem solid rgba(59, 130, 246, 0.25);
+}
+
+.vision-tag-tick {
+  background: rgba(16, 185, 129, 0.1);
+  color: #34d399;
+  border: 0.0625rem solid rgba(16, 185, 129, 0.2);
+  font-weight: 500;
+}
+
+.vision-inline-tick {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--muted, #94a0b2);
+  margin-left: 0.375rem;
 }
 
 .vision-price {
@@ -725,31 +765,92 @@
 }
 
 .vision-circuits-row {
-  display: flex;
-  gap: 1rem;
-  margin-top: 1rem;
-  padding: 0.75rem;
+  margin-top: 0.5rem;
+  padding: 0.4375rem 0.5rem;
   border-radius: 0.5rem;
-  background: color-mix(in srgb, currentColor 3%, transparent);
-  border: 0.0625rem solid color-mix(in srgb, currentColor 10%, transparent);
+  background: color-mix(in srgb, currentColor 2.5%, transparent);
+  border: 0.0625rem solid color-mix(in srgb, currentColor 8%, transparent);
+}
+
+.vision-grid-5 {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.375rem;
+}
+
+.vision-grid-4 {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.375rem;
+}
+
+.vision-grid-3 {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.375rem;
+}
+
+.vision-grid-sub {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(7.5rem, 1fr));
+  gap: 0.375rem;
 }
 
 .vision-circuit-item {
-  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 0;
+  padding: 0.375rem 0.4375rem;
+  background: color-mix(in srgb, currentColor 3%, transparent);
+  border: 0.0625rem solid color-mix(in srgb, currentColor 7%, transparent);
+  border-radius: 0.3125rem;
+  transition: all 0.15s ease;
+}
+
+.vision-circuit-item:hover {
+  background: color-mix(in srgb, currentColor 5.5%, transparent);
+  border-color: color-mix(in srgb, currentColor 15%, transparent);
 }
 
 .vision-circuit-item dt {
-  font-size: 0.6875rem;
+  height: 0.875rem;
+  line-height: 0.875rem;
+  font-size: 0.59375rem;
+  font-weight: 500;
   text-transform: uppercase;
   color: var(--muted, #94a0b2);
-  margin-bottom: 0.125rem;
+  letter-spacing: 0.03em;
+  margin-bottom: 0.1875rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: block;
 }
 
 .vision-circuit-item dd {
-  font-size: 0.9375rem;
-  font-weight: 700;
+  height: 1.125rem;
+  line-height: 1.125rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
   margin: 0;
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: block;
+}
+
+@media (max-width: 42rem) {
+  .vision-grid-5 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .vision-grid-4 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .vision-grid-3 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 .text-success {
@@ -850,4 +951,64 @@
 .vision-page-indicator strong {
   color: inherit;
   font-weight: 700;
+}
+
+.vision-modal-top-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.1875rem;
+}
+
+.vision-modal-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin: 0.1875rem 0;
+}
+
+.vision-modal-title {
+  margin: 0;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.vision-modal-isin {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  color: var(--muted, #94a0b2);
+  letter-spacing: 0.02em;
+}
+
+.vision-modal-isin strong {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-weight: 600;
+  color: #38bdf8;
+}
+
+.vision-modal-isin-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.65625rem;
+  font-weight: 500;
+  color: var(--muted, #94a0b2);
+  background: color-mix(in srgb, currentColor 5%, transparent);
+  border: 0.0625rem solid color-mix(in srgb, currentColor 14%, transparent);
+  padding: 0.0625rem 0.375rem;
+  border-radius: 0.25rem;
+  letter-spacing: 0.02em;
+}
+
+.vision-modal-isin-badge strong {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-weight: 600;
+  color: #38bdf8;
 }

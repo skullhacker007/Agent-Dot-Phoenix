@@ -11,6 +11,27 @@ export type CompactMarketPoint = {
   high?: number | null;
   low?: number | null;
   open?: number | null;
+  close?: number | null;
+  previousClose?: number | null;
+  averagePrice?: number | null;
+  oi?: number | null;
+  oiDayHigh?: number | null;
+  oiDayLow?: number | null;
+  prevOi?: number | null;
+  oiChange?: number | null;
+  oiChangePercent?: number | null;
+  yearlyHigh?: number | null;
+  yearlyLow?: number | null;
+  lastQuantity?: number | null;
+  totalBuyQuantity?: number | null;
+  totalSellQuantity?: number | null;
+  lowerCircuit?: number | null;
+  upperCircuit?: number | null;
+  expiry?: string | null;
+  lotSize?: number | null;
+  strikePrice?: number | null;
+  tickSize?: number | null;
+  isin?: string | null;
 };
 
 type MarketPointSummary = {
@@ -40,6 +61,7 @@ export type VisionChatMarketContext = {
     futures?: number;
     options?: number;
     commodities?: number;
+    bonds?: number;
     total?: number;
   };
   analytics?: {
@@ -97,9 +119,37 @@ type NormalizedPoint = {
   high: number | null;
   low: number | null;
   open: number | null;
+  close?: number | null;
+  previousClose?: number | null;
+  averagePrice?: number | null;
+  oi?: number | null;
+  oiDayHigh?: number | null;
+  oiDayLow?: number | null;
+  prevOi?: number | null;
+  oiChange?: number | null;
+  oiChangePercent?: number | null;
+  yearlyHigh?: number | null;
+  yearlyLow?: number | null;
+  lastQuantity?: number | null;
+  totalBuyQuantity?: number | null;
+  totalSellQuantity?: number | null;
+  lowerCircuit?: number | null;
+  upperCircuit?: number | null;
+  expiry?: string | null;
+  lotSize?: number | null;
+  strikePrice?: number | null;
+  tickSize?: number | null;
+  isin?: string | null;
   quote?: MarketPointSummary["quote"];
   rawPoint?: MarketDataPoint;
 };
+
+export function isDebtInstrument(symbol?: string, label?: string): boolean {
+  if (symbol && /^\d/.test(symbol.trim())) return true;
+  if (label && /^\d/.test(label.trim())) return true;
+  const text = `${symbol || ""} ${label || ""}`;
+  return /\b(?:SDL|NCD|CP|DEBENTURE|SERIES|SR\s*\d+)\b/i.test(text);
+}
 
 function normalizePoints(
   clientPoints?: CompactMarketPoint[],
@@ -141,6 +191,27 @@ function normalizePoints(
         high: entry.high !== null && entry.high !== undefined ? entry.high : existing.high,
         low: entry.low !== null && entry.low !== undefined ? entry.low : existing.low,
         open: entry.open !== null && entry.open !== undefined ? entry.open : existing.open,
+        close: entry.close !== null && entry.close !== undefined ? entry.close : existing.close,
+        previousClose: entry.previousClose !== null && entry.previousClose !== undefined ? entry.previousClose : existing.previousClose,
+        averagePrice: entry.averagePrice !== null && entry.averagePrice !== undefined ? entry.averagePrice : existing.averagePrice,
+        oi: entry.oi !== null && entry.oi !== undefined ? entry.oi : existing.oi,
+        oiDayHigh: entry.oiDayHigh !== null && entry.oiDayHigh !== undefined ? entry.oiDayHigh : existing.oiDayHigh,
+        oiDayLow: entry.oiDayLow !== null && entry.oiDayLow !== undefined ? entry.oiDayLow : existing.oiDayLow,
+        prevOi: entry.prevOi !== null && entry.prevOi !== undefined ? entry.prevOi : existing.prevOi,
+        oiChange: entry.oiChange !== null && entry.oiChange !== undefined ? entry.oiChange : existing.oiChange,
+        oiChangePercent: entry.oiChangePercent !== null && entry.oiChangePercent !== undefined ? entry.oiChangePercent : existing.oiChangePercent,
+        yearlyHigh: entry.yearlyHigh !== null && entry.yearlyHigh !== undefined ? entry.yearlyHigh : existing.yearlyHigh,
+        yearlyLow: entry.yearlyLow !== null && entry.yearlyLow !== undefined ? entry.yearlyLow : existing.yearlyLow,
+        lastQuantity: entry.lastQuantity !== null && entry.lastQuantity !== undefined ? entry.lastQuantity : existing.lastQuantity,
+        totalBuyQuantity: entry.totalBuyQuantity !== null && entry.totalBuyQuantity !== undefined ? entry.totalBuyQuantity : existing.totalBuyQuantity,
+        totalSellQuantity: entry.totalSellQuantity !== null && entry.totalSellQuantity !== undefined ? entry.totalSellQuantity : existing.totalSellQuantity,
+        lowerCircuit: entry.lowerCircuit !== null && entry.lowerCircuit !== undefined ? entry.lowerCircuit : existing.lowerCircuit,
+        upperCircuit: entry.upperCircuit !== null && entry.upperCircuit !== undefined ? entry.upperCircuit : existing.upperCircuit,
+        expiry: entry.expiry ?? existing.expiry,
+        lotSize: entry.lotSize ?? existing.lotSize,
+        strikePrice: entry.strikePrice ?? existing.strikePrice,
+        tickSize: entry.tickSize ?? existing.tickSize,
+        isin: entry.isin ?? existing.isin,
         quote: entry.quote ?? existing.quote,
         rawPoint: entry.rawPoint ?? existing.rawPoint,
       };
@@ -156,12 +227,7 @@ function normalizePoints(
     }
   }
 
-  const isDebtInstrument = (symbol?: string, label?: string) => {
-    if (symbol && /^\d/.test(symbol.trim())) return true;
-    if (label && /^\d/.test(label.trim())) return true;
-    const text = `${symbol || ""} ${label || ""}`;
-    return /\b(?:SDL|NCD|CP|DEBENTURE|SERIES|SR\s*\d+)\b/i.test(text);
-  };
+
 
   // Ingest server snapshot points first (authoritative feed)
   if (serverSnapshot?.dataPoints) {
@@ -181,6 +247,27 @@ function normalizePoints(
         high: p.quote?.high ?? null,
         low: p.quote?.low ?? null,
         open: p.quote?.open ?? null,
+        close: p.quote?.close ?? null,
+        previousClose: p.quote?.previousClose ?? null,
+        averagePrice: p.quote?.averagePrice ?? null,
+        oi: p.quote?.oi ?? null,
+        oiDayHigh: p.quote?.oiDayHigh ?? null,
+        oiDayLow: p.quote?.oiDayLow ?? null,
+        prevOi: p.quote?.prevOi ?? null,
+        oiChange: p.quote?.oiChange ?? null,
+        oiChangePercent: p.quote?.oiChangePercent ?? null,
+        yearlyHigh: p.quote?.yearlyHigh ?? null,
+        yearlyLow: p.quote?.yearlyLow ?? null,
+        lastQuantity: p.quote?.lastQuantity ?? null,
+        totalBuyQuantity: p.quote?.totalBuyQuantity ?? null,
+        totalSellQuantity: p.quote?.totalSellQuantity ?? null,
+        lowerCircuit: p.quote?.lowerCircuit ?? null,
+        upperCircuit: p.quote?.upperCircuit ?? null,
+        expiry: p.expiry ?? null,
+        lotSize: p.lotSize ?? null,
+        strikePrice: p.strikePrice ?? null,
+        tickSize: p.tickSize ?? null,
+        isin: p.isin ?? null,
         quote: p.quote,
         rawPoint: p,
       });
@@ -206,6 +293,27 @@ function normalizePoints(
         high: p.high !== undefined ? p.high : null,
         low: p.low !== undefined ? p.low : null,
         open: p.open !== undefined ? p.open : null,
+        close: p.close !== undefined ? p.close : null,
+        previousClose: p.previousClose !== undefined ? p.previousClose : null,
+        averagePrice: p.averagePrice !== undefined ? p.averagePrice : null,
+        oi: p.oi !== undefined ? p.oi : null,
+        oiDayHigh: p.oiDayHigh !== undefined ? p.oiDayHigh : null,
+        oiDayLow: p.oiDayLow !== undefined ? p.oiDayLow : null,
+        prevOi: p.prevOi !== undefined ? p.prevOi : null,
+        oiChange: p.oiChange !== undefined ? p.oiChange : null,
+        oiChangePercent: p.oiChangePercent !== undefined ? p.oiChangePercent : null,
+        yearlyHigh: p.yearlyHigh !== undefined ? p.yearlyHigh : null,
+        yearlyLow: p.yearlyLow !== undefined ? p.yearlyLow : null,
+        lastQuantity: p.lastQuantity !== undefined ? p.lastQuantity : null,
+        totalBuyQuantity: p.totalBuyQuantity !== undefined ? p.totalBuyQuantity : null,
+        totalSellQuantity: p.totalSellQuantity !== undefined ? p.totalSellQuantity : null,
+        lowerCircuit: p.lowerCircuit !== undefined ? p.lowerCircuit : null,
+        upperCircuit: p.upperCircuit !== undefined ? p.upperCircuit : null,
+        expiry: p.expiry ?? null,
+        lotSize: p.lotSize ?? null,
+        strikePrice: p.strikePrice ?? null,
+        tickSize: p.tickSize ?? null,
+        isin: p.isin ?? null,
       });
     }
   }
@@ -225,6 +333,7 @@ export function buildVisionMarketContext(
   // Group into categories
   const options: NormalizedPoint[] = [];
   const commodities: NormalizedPoint[] = [];
+  const bonds: NormalizedPoint[] = [];
   const futures: NormalizedPoint[] = [];
   const indices: NormalizedPoint[] = [];
   const stocks: NormalizedPoint[] = [];
@@ -249,6 +358,19 @@ export function buildVisionMarketContext(
       l.includes(" pe (put)")
     ) {
       options.push(p);
+    } else if (
+      g.includes("bond") ||
+      g.includes("debt") ||
+      l.includes("bond") ||
+      s.includes("bond") ||
+      l.includes("g-sec") ||
+      l.includes("gsec") ||
+      l.includes("sovereign gold") ||
+      l.includes("sgb") ||
+      s.startsWith("sgb") ||
+      isDebtInstrument(s, l)
+    ) {
+      bonds.push(p);
     } else if (
       g.includes("commodit") ||
       g.includes("mcx") ||
@@ -292,6 +414,8 @@ export function buildVisionMarketContext(
     options: clientContext?.categoryCounts?.options ?? options.length,
     commodities:
       clientContext?.categoryCounts?.commodities ?? commodities.length,
+    bonds:
+      clientContext?.categoryCounts?.bonds ?? bonds.length,
   };
 
   const totalBreadth = advanceCount + declineCount + unchangedCount;
@@ -325,7 +449,7 @@ export function buildVisionMarketContext(
   lines.push("Status: Connected & Streaming (Upstox API v2)");
   lines.push(`Total Instruments Tracked: ${counts.total}`);
   lines.push(
-    `- Category Breakdown: Stocks: ${counts.stocks} | Indices: ${counts.indices} | Futures: ${counts.futures} | Options: ${counts.options} | Commodities: ${counts.commodities}`,
+    `- Category Breakdown: Stocks: ${counts.stocks} | Indices: ${counts.indices} | Futures: ${counts.futures} | Options: ${counts.options} | Commodities: ${counts.commodities} | Bonds: ${counts.bonds}`,
   );
   lines.push(
     `- Market Breadth: Advances: ${advanceCount} | Declines: ${declineCount} | Unchanged: ${unchangedCount} (${advancePercent}% advancing — ${breadthSentiment})`,
@@ -364,8 +488,12 @@ export function buildVisionMarketContext(
   lines.push("\n#### OPTIONS CONTRACTS LIST (Total: " + counts.options + "):");
   if (options.length > 0) {
     options.forEach((opt, idx) => {
+      const oiChangeStr =
+        opt.oiChange !== null && opt.oiChange !== undefined
+          ? ` (${opt.oiChange > 0 ? "+" : ""}${formatVolume(opt.oiChange)}${opt.oiChangePercent ? ` / ${opt.oiChangePercent > 0 ? "+" : ""}${opt.oiChangePercent.toFixed(1)}%` : ""})`
+          : "";
       lines.push(
-        `${idx + 1}. **${opt.label}** (${opt.symbol}) — CMP: ${formatPrice(opt.value)} | Change: ${formatChange(opt.change, opt.changePercent)} | Volume: ${formatVolume(opt.volume)}`,
+        `${idx + 1}. **${opt.label}** (${opt.symbol}) — CMP: ${formatPrice(opt.value)} | Change: ${formatChange(opt.change, opt.changePercent)} | Volume: ${formatVolume(opt.volume)}${opt.oi ? ` | OI: ${formatVolume(opt.oi)}${oiChangeStr}` : ""}${opt.lotSize ? ` | Lot: ${opt.lotSize}` : ""}${opt.expiry ? ` | Expiry: ${opt.expiry}` : ""}`,
       );
     });
   } else {
@@ -383,13 +511,29 @@ export function buildVisionMarketContext(
   } else {
     lines.push(`Currently tracking ${counts.commodities} active commodities.`);
   }
+  // Bonds Section
+  lines.push("\n#### BONDS & DEBT SECURITIES LIST (Total: " + counts.bonds + "):");
+  if (bonds.length > 0) {
+    bonds.forEach((bond, idx) => {
+      const isinText = bond.isin ? ` · ISIN: ${bond.isin}` : "";
+      lines.push(
+        `${idx + 1}. **${bond.label}** (${bond.symbol}${isinText}) — CMP: ${formatPrice(bond.value)} | Change: ${formatChange(bond.change, bond.changePercent)} | Volume: ${formatVolume(bond.volume)}`,
+      );
+    });
+  } else {
+    lines.push(`Currently tracking ${counts.bonds} active bonds.`);
+  }
 
   // Futures Section
   lines.push("\n#### FUTURES CONTRACTS LIST (Total: " + counts.futures + "):");
   if (futures.length > 0) {
     futures.forEach((fut, idx) => {
+      const oiChangeStr =
+        fut.oiChange !== null && fut.oiChange !== undefined
+          ? ` (${fut.oiChange > 0 ? "+" : ""}${formatVolume(fut.oiChange)}${fut.oiChangePercent ? ` / ${fut.oiChangePercent > 0 ? "+" : ""}${fut.oiChangePercent.toFixed(1)}%` : ""})`
+          : "";
       lines.push(
-        `${idx + 1}. **${fut.label}** (${fut.symbol}) — CMP: ${formatPrice(fut.value)} | Change: ${formatChange(fut.change, fut.changePercent)} | Volume: ${formatVolume(fut.volume)}`,
+        `${idx + 1}. **${fut.label}** (${fut.symbol}) — CMP: ${formatPrice(fut.value)} | Change: ${formatChange(fut.change, fut.changePercent)} | Volume: ${formatVolume(fut.volume)}${fut.oi ? ` | OI: ${formatVolume(fut.oi)}${oiChangeStr}` : ""}${fut.lotSize ? ` | Lot: ${fut.lotSize}` : ""}${fut.expiry ? ` | Expiry: ${fut.expiry}` : ""}`,
       );
     });
   } else {
@@ -426,8 +570,10 @@ export function buildVisionMarketContext(
   // Complete Equities Directory
   lines.push("\n#### COMPLETE STOCKS DIRECTORY (Total: " + counts.stocks + "):");
   stocks.forEach((s) => {
+    const range52w = s.yearlyLow && s.yearlyHigh ? ` | 52W: [${formatPrice(s.yearlyLow)} - ${formatPrice(s.yearlyHigh)}]` : "";
+    const vwapText = s.averagePrice ? ` | VWAP: ${formatPrice(s.averagePrice)}` : "";
     lines.push(
-      `- ${s.label} (${s.symbol}): CMP ${formatPrice(s.value)} (${formatChange(s.change, s.changePercent)}), High: ${formatPrice(s.high)}, Low: ${formatPrice(s.low)}, Vol: ${formatVolume(s.volume)}`,
+      `- ${s.label} (${s.symbol}): CMP ${formatPrice(s.value)} (${formatChange(s.change, s.changePercent)}), High: ${formatPrice(s.high)}, Low: ${formatPrice(s.low)}, Vol: ${formatVolume(s.volume)}${range52w}${vwapText}`,
     );
   });
 
@@ -437,9 +583,11 @@ export function buildVisionMarketContext(
     "1. **Brevity & Output Length**: Keep answers short, clear, and focused on the user's exact question. Keep default answers strictly within 5–8 lines. Do not repeat the user's question. Do not provide generic disclaimers or subjective hedging (never say 'Direct best buy is subjective; review...'). Give a longer explanation only when the user explicitly asks for detailed analysis; otherwise keep it simple.",
   );
   lines.push(
-    "2. **Direct Counts**: For counts, return the number directly without unnecessary preamble (e.g. if asked 'how many in commodities list now?' or 'how many stocks in options?', return the number directly: " +
+    "2. **Direct Counts**: For counts, return the number directly without unnecessary preamble (e.g. if asked 'how many in commodities list now?', 'how many bonds?', or 'how many stocks in options?', return the number directly: " +
       counts.commodities +
       " commodities, " +
+      counts.bonds +
+      " bonds, " +
       counts.options +
       " options).",
   );

@@ -123,7 +123,19 @@ const upstoxDataSchema = z
     instrument_token: z.string().nullish(),
     instrument_key: z.string().nullish(),
     symbol: z.string().nullish(),
+    name: z.string().nullish(),
     last_price: z.coerce.number().nullish(),
+    close_price: z.coerce.number().nullish(),
+    prev_close: z.coerce.number().nullish(),
+    yearly_high: z.coerce.number().nullish(),
+    year_high: z.coerce.number().nullish(),
+    yearly_low: z.coerce.number().nullish(),
+    year_low: z.coerce.number().nullish(),
+    last_quantity: z.coerce.number().nullish(),
+    ltq: z.coerce.number().nullish(),
+    last_traded_quantity: z.coerce.number().nullish(),
+    prev_oi: z.coerce.number().nullish(),
+    previous_oi: z.coerce.number().nullish(),
     cp: z.coerce.number().nullish(),
     net_change: z.coerce.number().nullish(),
     previous_close: z.coerce.number().nullish(),
@@ -131,6 +143,10 @@ const upstoxDataSchema = z
     volume: z.coerce.number().nullish(),
     average_price: z.coerce.number().nullish(),
     avg_price: z.coerce.number().nullish(),
+    oi: z.coerce.number().nullish(),
+    open_interest: z.coerce.number().nullish(),
+    oi_day_high: z.coerce.number().nullish(),
+    oi_day_low: z.coerce.number().nullish(),
     total_buy_quantity: z.coerce.number().nullish(),
     total_buy_qty: z.coerce.number().nullish(),
     total_sell_quantity: z.coerce.number().nullish(),
@@ -445,6 +461,7 @@ export async function fetchIndianEquities(
     ...universe.futures,
     ...universe.options,
     ...universe.commodities,
+    ...universe.bonds,
   ];
 
   const dataMap = await fetchQuotesBatch(
@@ -461,17 +478,30 @@ export async function fetchIndianEquities(
     const { data, matchedKey } = matched;
 
     const lastPrice = data.last_price ?? null;
-    const previousClose = data.previous_close ?? data.ohlc?.close ?? null;
-    const netChange = data.net_change ?? null;
-    const cp = data.cp ?? null;
+    const previousClose =
+      data.previous_close ??
+      data.ohlc?.close ??
+      data.close_price ??
+      data.prev_close ??
+      data.cp ??
+      null;
+
+    let netChange = data.net_change ?? null;
+    if (netChange === null && typeof lastPrice === "number" && typeof previousClose === "number") {
+      netChange = lastPrice - previousClose;
+    }
+
+    let finalPrevClose = previousClose;
+    if (finalPrevClose === null && typeof lastPrice === "number" && typeof netChange === "number") {
+      finalPrevClose = lastPrice - netChange;
+    }
+
     const changePercent =
-      typeof cp === "number" && Number.isFinite(cp)
-        ? cp
-        : typeof netChange === "number" &&
-            typeof previousClose === "number" &&
-            previousClose !== 0
-          ? (netChange / previousClose) * 100
-          : null;
+      typeof netChange === "number" &&
+      typeof finalPrevClose === "number" &&
+      finalPrevClose !== 0
+        ? (netChange / finalPrevClose) * 100
+        : null;
 
     // Resolve clean trading symbol:
     // 1. data.symbol (from response)
@@ -542,10 +572,78 @@ export async function fetchIndianEquities(
       normalizedBuy.length > 0 ||
       normalizedSell.length > 0;
 
+    const oi =
+      typeof data.oi === "number" && Number.isFinite(data.oi)
+        ? data.oi
+        : typeof data.open_interest === "number" && Number.isFinite(data.open_interest)
+          ? data.open_interest
+          : null;
+
+    const oiDayHigh =
+      typeof data.oi_day_high === "number" && Number.isFinite(data.oi_day_high)
+        ? data.oi_day_high
+        : null;
+
+    const oiDayLow =
+      typeof data.oi_day_low === "number" && Number.isFinite(data.oi_day_low)
+        ? data.oi_day_low
+        : null;
+
+    const prevOi =
+      typeof data.prev_oi === "number" && Number.isFinite(data.prev_oi)
+        ? data.prev_oi
+        : typeof data.previous_oi === "number" && Number.isFinite(data.previous_oi)
+          ? data.previous_oi
+          : null;
+
+    const oiChange =
+      oi !== null && prevOi !== null
+        ? oi - prevOi
+        : null;
+
+    const oiChangePercent =
+      oi !== null && prevOi !== null && prevOi !== 0
+        ? ((oi - prevOi) / prevOi) * 100
+        : null;
+
+    const yearlyHigh =
+      typeof data.yearly_high === "number" && Number.isFinite(data.yearly_high)
+        ? data.yearly_high
+        : typeof data.year_high === "number" && Number.isFinite(data.year_high)
+          ? data.year_high
+          : null;
+
+    const yearlyLow =
+      typeof data.yearly_low === "number" && Number.isFinite(data.yearly_low)
+        ? data.yearly_low
+        : typeof data.year_low === "number" && Number.isFinite(data.year_low)
+          ? data.year_low
+          : null;
+
+    const lastQuantity =
+      typeof data.last_quantity === "number" && Number.isFinite(data.last_quantity)
+        ? data.last_quantity
+        : typeof data.ltq === "number" && Number.isFinite(data.ltq)
+          ? data.ltq
+          : typeof data.last_traded_quantity === "number" && Number.isFinite(data.last_traded_quantity)
+            ? data.last_traded_quantity
+            : null;
+
+    const isin =
+      config.isin ||
+      (config.instrument.includes("|") && config.instrument.split("|")[1].startsWith("IN")
+        ? config.instrument.split("|")[1]
+        : null);
+
     points.push({
       instrument: config.instrument,
       label: config.label,
       group: config.group,
+      lotSize: config.lotSize ?? null,
+      expiry: config.expiry ?? null,
+      strikePrice: config.strikePrice ?? null,
+      tickSize: config.tickSize ?? null,
+      isin,
       quote: {
         symbol: sym,
         name: config.label,
@@ -555,7 +653,10 @@ export async function fetchIndianEquities(
         changePercent,
         observedAtMs: observedAtMs(data),
         lastTradeTimeMs: parseLastTradeTimeMs(data),
-        previousClose: typeof previousClose === "number" ? previousClose : null,
+        lastQuantity,
+        yearlyHigh,
+        yearlyLow,
+        previousClose: typeof finalPrevClose === "number" ? finalPrevClose : null,
         open: data.ohlc?.open ?? null,
         high: data.ohlc?.high ?? null,
         low: data.ohlc?.low ?? null,
@@ -566,6 +667,12 @@ export async function fetchIndianEquities(
         totalSellQuantity,
         lowerCircuit: data.lower_circuit_limit ?? data.lower_circuit ?? null,
         upperCircuit: data.upper_circuit_limit ?? data.upper_circuit ?? null,
+        oi,
+        oiDayHigh,
+        oiDayLow,
+        prevOi,
+        oiChange,
+        oiChangePercent,
         depth: hasDepth
           ? {
               buy: normalizedBuy,

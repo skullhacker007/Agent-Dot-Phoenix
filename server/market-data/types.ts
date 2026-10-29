@@ -70,6 +70,24 @@ export const quoteSchema = z.object({
   upperCircuit: z.number().finite().nullable().optional(),
   /** Provider-reported last trade execution timestamp on exchange, in epoch ms. */
   lastTradeTimeMs: z.number().int().nonnegative().nullable().optional(),
+  /** Last Traded Quantity (LTQ) executed at last trade. */
+  lastQuantity: z.number().finite().nullable().optional(),
+  /** 52-Week / Yearly High price. */
+  yearlyHigh: z.number().finite().nullable().optional(),
+  /** 52-Week / Yearly Low price. */
+  yearlyLow: z.number().finite().nullable().optional(),
+  /** Open Interest for derivatives (Futures & Options). */
+  oi: z.number().finite().nullable().optional(),
+  /** Highest Open Interest recorded during session. */
+  oiDayHigh: z.number().finite().nullable().optional(),
+  /** Lowest Open Interest recorded during session. */
+  oiDayLow: z.number().finite().nullable().optional(),
+  /** Previous session's Open Interest. */
+  prevOi: z.number().finite().nullable().optional(),
+  /** Change in Open Interest from previous session. */
+  oiChange: z.number().finite().nullable().optional(),
+  /** Percentage change in Open Interest from previous session. */
+  oiChangePercent: z.number().finite().nullable().optional(),
   depth: z
     .object({
       buy: z.array(marketDepthItemSchema).nullish(),
@@ -91,6 +109,16 @@ export const dataPointSchema = z.object({
   delay: delayLevelSchema,
   /** True when the provider supports an official WebSocket stream. */
   supportsRealtimeStream: z.boolean(),
+  /** Contract lot size (e.g. 25, 50, 100) for derivatives. */
+  lotSize: z.number().finite().nullable().optional(),
+  /** Contract expiration date string (e.g. "2026-11-26"). */
+  expiry: z.string().nullable().optional(),
+  /** Option contract strike price. */
+  strikePrice: z.number().finite().nullable().optional(),
+  /** Minimum price movement tick. */
+  tickSize: z.number().finite().nullable().optional(),
+  /** International Securities Identification Number. */
+  isin: z.string().nullable().optional(),
 });
 export type MarketDataPoint = z.infer<typeof dataPointSchema>;
 

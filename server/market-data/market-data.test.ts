@@ -34,7 +34,7 @@ import {
   parseLastTradeTimeMs,
   UpstoxConfigurationError,
 } from "./pipelines/indian-equities";
-import { isEquityRow } from "./upstox-universe";
+import { isEquityRow, isBondRow } from "./upstox-universe";
 import {
   PROVIDER_GLOBAL,
   discoverIndexInstruments,
@@ -422,6 +422,63 @@ describe("Upstox configuration gating", () => {
     }
   });
 
+  it("accurately classifies bonds, debentures, commercial papers, and sovereign gold bonds", () => {
+    // Government Bonds / G-Secs
+    expect(
+      isBondRow({
+        segment: "NSE_EQ",
+        instrument_type: "GS",
+        tradingsymbol: "718GS2033",
+        name: "7.18% GS 2033",
+        instrument_key: "NSE_EQ|IN0020230085",
+      }),
+    ).toBe(true);
+
+    // Sovereign Gold Bonds
+    expect(
+      isBondRow({
+        segment: "NSE_EQ",
+        instrument_type: "SG",
+        tradingsymbol: "SGBMAR30",
+        name: "Sovereign Gold Bond 2030",
+        instrument_key: "NSE_EQ|IN0020210186",
+      }),
+    ).toBe(true);
+
+    // Corporate NCDs
+    expect(
+      isBondRow({
+        segment: "NSE_EQ",
+        instrument_type: "NCD",
+        tradingsymbol: "814PFC26",
+        name: "Power Finance Corp NCD",
+        instrument_key: "NSE_EQ|INE134E07010",
+      }),
+    ).toBe(true);
+
+    // Commercial paper starting with coupon rate
+    expect(
+      isBondRow({
+        segment: "NSE_EQ",
+        instrument_type: "CP",
+        tradingsymbol: "1020CCSP27",
+        name: "Clix Capital Services CP 2027",
+        instrument_key: "NSE_EQ|INE523H14013",
+      }),
+    ).toBe(true);
+
+    // Equities should NOT be classified as bonds
+    expect(
+      isBondRow({
+        segment: "NSE_EQ",
+        instrument_type: "EQ",
+        tradingsymbol: "RELIANCE",
+        name: "Reliance Industries Limited",
+        instrument_key: "NSE_EQ|INE002A01018",
+      }),
+    ).toBe(false);
+  });
+
   it("throws not-configured when the analytics token is missing", async () => {
     vi.stubEnv("UPSTOX_ANALYTICS_TOKEN", "");
     expect(isUpstoxConfigured()).toBe(false);
@@ -704,5 +761,99 @@ describe("Indian market universe allocation limits", () => {
     vi.stubEnv("MARKET_DATA_INDIAN_EQUITY_LIMIT", "500");
     const limits = resolveIndianLimits();
     expect(limits.equities).toBe(500);
+  });
+});
+
+describe("Upstox v2 full market quote comprehensive mapping", () => {
+  it("maps 52-week highs/lows, last traded quantity (ltq), previous OI, and OI change metrics", async () => {
+    vi.stubEnv("UPSTOX_ANALYTICS_TOKEN", "valid-test-token");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        jsonResponse({
+          status: "success",
+          data: {
+            "NSE_EQ:RELIANCE": {
+              instrument_token: "NSE_EQ|INE002A01018",
+              symbol: "RELIANCE",
+              last_price: 3000,
+              net_change: 50,
+              previous_close: 2950,
+              yearly_high: 3217.9,
+              yearly_low: 2220.3,
+              last_quantity: 250,
+              average_price: 2985.4,
+              volume: 4500000,
+              total_buy_quantity: 650000,
+              total_sell_quantity: 520000,
+              lower_circuit_limit: 2655,
+              upper_circuit_limit: 3245,
+            },
+            "NSE_FO:50978": {
+              instrument_token: "NSE_FO|50978",
+              symbol: "NIFTY26NOV27000CE",
+              last_price: 150,
+              net_change: 25,
+              previous_close: 125,
+              oi: 5000000,
+              prev_oi: 4500000,
+              oi_day_high: 5200000,
+              oi_day_low: 4400000,
+              last_quantity: 75,
+            },
+          },
+        }),
+      ),
+    );
+
+    const points = await fetchIndianEquities();
+    const reliance = points.find((p) => p.quote.symbol === "RELIANCE");
+    expect(reliance).toBeDefined();
+    expect(reliance?.quote.yearlyHigh).toBe(3217.9);
+    expect(reliance?.quote.yearlyLow).toBe(2220.3);
+    expect(reliance?.quote.lastQuantity).toBe(250);
+    expect(reliance?.quote.averagePrice).toBe(2985.4);
+    expect(reliance?.quote.totalBuyQuantity).toBe(650000);
+    expect(reliance?.quote.totalSellQuantity).toBe(520000);
+    expect(reliance?.quote.lowerCircuit).toBe(2655);
+    expect(reliance?.quote.upperCircuit).toBe(3245);
+    expect(reliance?.isin).toBe("INE002A01018");
+
+    const option = points.find((p) => p.instrument === "NSE_FO|50978");
+    expect(option).toBeDefined();
+    expect(option?.quote.oi).toBe(5000000);
+    expect(option?.quote.prevOi).toBe(4500000);
+    expect(option?.quote.oiChange).toBe(500000);
+    expect(option?.quote.oiChangePercent).toBeCloseTo(11.11, 1);
+    expect(option?.quote.oiDayHigh).toBe(5200000);
+    expect(option?.quote.oiDayLow).toBe(4400000);
+    expect(option?.quote.lastQuantity).toBe(75);
+  });
+
+  it("calculates netChange and previousClose seamlessly when only cp and last_price are present", async () => {
+    vi.stubEnv("UPSTOX_ANALYTICS_TOKEN", "valid-test-token");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        jsonResponse({
+          status: "success",
+          data: {
+            "NSE_EQ:RELIANCE": {
+              instrument_token: "NSE_EQ|INE002A01018",
+              symbol: "RELIANCE",
+              last_price: 3000,
+              cp: 2950, // closing price from previous session
+            },
+          },
+        }),
+      ),
+    );
+
+    const points = await fetchIndianEquities();
+    const reliance = points.find((p) => p.quote.symbol === "RELIANCE");
+    expect(reliance).toBeDefined();
+    expect(reliance?.quote.previousClose).toBe(2950);
+    expect(reliance?.quote.change).toBe(50);
+    expect(reliance?.quote.changePercent).toBeCloseTo(1.695, 2);
   });
 });
