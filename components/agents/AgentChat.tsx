@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { FormEvent, ReactNode } from "react";
 import { setAgentActivity } from "../../lib/agent-activity";
 import type { TeamId } from "../../lib/agent-monitoring";
@@ -19,6 +19,32 @@ export type AgentChatProps = {
   assignedModel: string | null;
   loading: boolean;
   marketContext?: unknown;
+};
+
+type ChatSpeechRecognitionResult = {
+  readonly isFinal: boolean;
+  readonly [index: number]: { readonly transcript: string };
+};
+
+type ChatSpeechRecognitionEvent = {
+  readonly resultIndex: number;
+  readonly results: ArrayLike<ChatSpeechRecognitionResult>;
+};
+
+type ChatRecognition = {
+  lang: string;
+  interimResults: boolean;
+  continuous: boolean;
+  onresult: ((event: ChatSpeechRecognitionEvent) => void) | null;
+  onerror: (() => void) | null;
+  onend: (() => void) | null;
+  start: () => void;
+  abort: () => void;
+};
+
+type ChatRecognitionWindow = Window & {
+  SpeechRecognition?: new () => ChatRecognition;
+  webkitSpeechRecognition?: new () => ChatRecognition;
 };
 
 export function buildConversationPayload(
@@ -62,6 +88,16 @@ function getErrorMessage(payload: unknown, teamName: string) {
 
 function estimateTokens(text: string) {
   return text ? Math.ceil(text.length / 4) : 0;
+}
+
+export function cleanTextForSpeech(content: string): string {
+  return content
+    .replace(/\*\*(.*?)\*\*/g, "$1")
+    .replace(/[*_#`~]/g, "")
+    .replace(/https?:\/\/\S+/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 1000);
 }
 
 function renderMessageContent(content: string, isThinking = false) {
@@ -132,17 +168,158 @@ export default function AgentChat({
   const [draft, setDraft] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(() => {
+    if (typeof window === "undefined") return false;
+    const urlParams = new URLSearchParams(window.location.search);
+    return urlParams.get("chat") === "open";
+  });
+  const [dictating, setDictating] = useState(false);
   const nextId = useRef(0);
   const submitting = useRef(false);
   const activeRequest = useRef<AbortController | null>(null);
+  const formRef = useRef<HTMLFormElement | null>(null);
+  const recognitionRef = useRef<ChatRecognition | null>(null);
+  const initialDraftRef = useRef("");
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const pending = sessionStorage.getItem("pending-agent-chat-message");
+      if (pending) {
+        sessionStorage.removeItem("pending-agent-chat-message");
+        const parsed = JSON.parse(pending) as { text?: unknown; submit?: unknown };
+        if (typeof parsed?.text === "string" && parsed.text.trim()) {
+          const messageText = parsed.text.trim();
+          window.requestAnimationFrame(() => {
+            setOpen(true);
+            setDraft(messageText);
+            if (parsed.submit) {
+              window.setTimeout(() => {
+                formRef.current?.requestSubmit();
+              }, 300);
+            }
+          });
+        }
+      }
+    } catch {}
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const handleControl = (event: Event) => {
+      if (!(event instanceof CustomEvent)) return;
+      const action = event.detail?.action;
+      if (action === "open") {
+        setOpen(true);
+      } else if (action === "close") {
+        setOpen(false);
+      }
+    };
+
+    const handleDictate = (event: Event) => {
+      if (!(event instanceof CustomEvent)) return;
+      const { text, submit } = event.detail ?? {};
+      if (typeof text !== "string" || !text.trim()) return;
+      setOpen(true);
+      setDraft((current) => (current ? `${current} ${text.trim()}` : text.trim()));
+      if (submit) {
+        window.setTimeout(() => {
+          formRef.current?.requestSubmit();
+        }, 150);
+      }
+    };
+
+    window.addEventListener("agent-chat-control", handleControl);
+    window.addEventListener("agent-chat-dictate", handleDictate);
+
+    return () => {
+      window.removeEventListener("agent-chat-control", handleControl);
+      window.removeEventListener("agent-chat-dictate", handleDictate);
+    };
+  }, []);
 
   useEffect(
     () => () => {
       activeRequest.current?.abort();
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.abort();
+        } catch {}
+        recognitionRef.current = null;
+      }
     },
     [],
   );
+
+  const toggleDictation = useCallback(() => {
+    if (dictating) {
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.abort();
+        } catch {}
+        recognitionRef.current = null;
+      }
+      setDictating(false);
+      return;
+    }
+
+    const browser = window as ChatRecognitionWindow;
+    const RecognitionAPI =
+      browser.SpeechRecognition ?? browser.webkitSpeechRecognition;
+    if (!RecognitionAPI) {
+      setError("Speech recognition is not supported in this browser.");
+      return;
+    }
+
+    const recognition = new RecognitionAPI();
+    recognition.lang =
+      typeof navigator !== "undefined" && navigator.language?.startsWith("en")
+        ? navigator.language
+        : "en-IN";
+    recognition.interimResults = true;
+    recognition.continuous = false;
+
+    let finalSpoken = "";
+    recognition.onresult = (event: ChatSpeechRecognitionEvent) => {
+      let interim = "";
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const result = event.results[i];
+        if (result.isFinal) finalSpoken += `${result[0].transcript} `;
+        else interim += result[0].transcript;
+      }
+      const recognized = [finalSpoken.trim(), interim.trim()]
+        .filter(Boolean)
+        .join(" ");
+      if (recognized) {
+        setDraft(
+          initialDraftRef.current
+            ? `${initialDraftRef.current} ${recognized}`
+            : recognized,
+        );
+      }
+    };
+
+    recognition.onerror = () => {
+      setDictating(false);
+      recognitionRef.current = null;
+    };
+
+    recognition.onend = () => {
+      setDictating(false);
+      recognitionRef.current = null;
+    };
+
+    initialDraftRef.current = draft;
+    recognitionRef.current = recognition;
+    setDictating(true);
+    try {
+      recognition.start();
+    } catch {
+      setDictating(false);
+      recognitionRef.current = null;
+    }
+  }, [dictating, draft]);
 
   async function sendMessage(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -393,7 +570,7 @@ export default function AgentChat({
             </p>
           )}
 
-          <form className="agent-chat-form" onSubmit={sendMessage}>
+          <form className="agent-chat-form" onSubmit={sendMessage} ref={formRef}>
             <label
               className="agent-chat-input-label"
               htmlFor="agent-chat-input"
@@ -422,17 +599,37 @@ export default function AgentChat({
                     ? "Defensive cybersecurity assistance only"
                     : "Avoid sharing sensitive data"}
               </span>
-              <button
-                type="submit"
-                disabled={
-                  busy ||
-                  modelsLoading ||
-                  !assignedModelAvailable ||
-                  !draft.trim()
-                }
-              >
-                {busy ? "Thinking..." : "Send"}
-              </button>
+              <div className="agent-chat-form-actions">
+                <button
+                  type="button"
+                  className={`agent-chat-dictate-button ${dictating ? "is-dictating" : ""}`}
+                  onClick={toggleDictation}
+                  aria-label={dictating ? "Stop voice dictation" : "Dictate message"}
+                  title={
+                    dictating
+                      ? "Listening... (Click to stop)"
+                      : "Dictate message instead of typing"
+                  }
+                  disabled={busy || !assignedModelAvailable}
+                >
+                  <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <rect x="9" y="3" width="6" height="12" rx="3" />
+                    <path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 18v3m-4 0h8" />
+                  </svg>
+                  {dictating && <span className="agent-chat-dictate-pulse" />}
+                </button>
+                <button
+                  type="submit"
+                  disabled={
+                    busy ||
+                    modelsLoading ||
+                    !assignedModelAvailable ||
+                    !draft.trim()
+                  }
+                >
+                  {busy ? "Thinking..." : "Send"}
+                </button>
+              </div>
             </div>
           </form>
         </section>

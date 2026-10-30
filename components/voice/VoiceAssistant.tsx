@@ -102,6 +102,9 @@ export default function VoiceAssistant() {
   }, [pathname]);
 
   const recognitionRef = useRef<Recognition | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const audioUrlRef = useRef<string | null>(null);
+  const speakAbortControllerRef = useRef<AbortController | null>(null);
   const statusRef = useRef<VoiceStatus>("idle");
   const activatedRef = useRef(activated);
   const mountedRef = useRef(false);
@@ -133,6 +136,20 @@ export default function VoiceAssistant() {
         } catch {}
         recognitionRef.current = null;
       }
+      if (audioRef.current) {
+        try {
+          audioRef.current.pause();
+        } catch {}
+        audioRef.current = null;
+      }
+      if (audioUrlRef.current) {
+        URL.revokeObjectURL(audioUrlRef.current);
+        audioUrlRef.current = null;
+      }
+      if (speakAbortControllerRef.current) {
+        speakAbortControllerRef.current.abort();
+        speakAbortControllerRef.current = null;
+      }
       if (typeof window !== "undefined" && window.speechSynthesis) {
         window.speechSynthesis.cancel();
       }
@@ -157,22 +174,13 @@ export default function VoiceAssistant() {
     setStatus(next);
   }, []);
 
-  const speak = useCallback(
+  const speakWithBrowserSynthesis = useCallback(
     (text: string) => {
-      setMessage(text);
       if (typeof window === "undefined" || !("speechSynthesis" in window)) {
         changeStatus("idle");
         responsePendingRef.current = false;
         if (activatedRef.current) startRecognitionRef.current();
         return;
-      }
-
-      // Abort ongoing recognition while speaking to prevent feedback loops
-      if (recognitionRef.current) {
-        try {
-          recognitionRef.current.abort();
-        } catch {}
-        recognitionRef.current = null;
       }
 
       window.speechSynthesis.cancel();
@@ -207,6 +215,91 @@ export default function VoiceAssistant() {
       window.speechSynthesis.speak(utterance);
     },
     [changeStatus],
+  );
+
+  const speak = useCallback(
+    (text: string) => {
+      setMessage(text);
+
+      if (audioRef.current) {
+        try {
+          audioRef.current.pause();
+        } catch {}
+        audioRef.current = null;
+      }
+      if (audioUrlRef.current) {
+        URL.revokeObjectURL(audioUrlRef.current);
+        audioUrlRef.current = null;
+      }
+      if (speakAbortControllerRef.current) {
+        speakAbortControllerRef.current.abort();
+        speakAbortControllerRef.current = null;
+      }
+      if (typeof window !== "undefined" && window.speechSynthesis) {
+        window.speechSynthesis.cancel();
+      }
+
+      // Abort ongoing recognition while speaking to prevent feedback loops
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.abort();
+        } catch {}
+        recognitionRef.current = null;
+      }
+
+      changeStatus("speaking");
+
+      const controller = new AbortController();
+      speakAbortControllerRef.current = controller;
+
+      fetch("/api/voice/speak", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text, teamId: "JARVIS" }),
+        signal: controller.signal,
+      })
+        .then(async (response) => {
+          if (!response.ok) {
+            throw new Error(`TTS HTTP ${response.status}`);
+          }
+          const blob = await response.blob();
+          if (!mountedRef.current || controller.signal.aborted) return;
+
+          const audioUrl = URL.createObjectURL(blob);
+          audioUrlRef.current = audioUrl;
+          const audio = new Audio(audioUrl);
+          audioRef.current = audio;
+
+          const onFinish = () => {
+            if (audioUrlRef.current) {
+              URL.revokeObjectURL(audioUrlRef.current);
+              audioUrlRef.current = null;
+            }
+            if (audioRef.current === audio) {
+              audioRef.current = null;
+            }
+            if (!mountedRef.current) return;
+            changeStatus("idle");
+            responsePendingRef.current = false;
+            if (activatedRef.current) startRecognitionRef.current();
+          };
+
+          audio.onended = onFinish;
+          audio.onerror = () => {
+            onFinish();
+            speakWithBrowserSynthesis(text);
+          };
+
+          await audio.play();
+        })
+        .catch((error: unknown) => {
+          if (error instanceof DOMException && error.name === "AbortError") {
+            return;
+          }
+          speakWithBrowserSynthesis(text);
+        });
+    },
+    [changeStatus, speakWithBrowserSynthesis],
   );
 
   const runCommand = useCallback(
@@ -259,6 +352,51 @@ export default function VoiceAssistant() {
       if (command.type === "navigate") {
         speak(getVoiceCommandReply(command, currentPath));
         if (currentPath !== command.href) router.push(command.href);
+        return;
+      }
+
+      if (command.type === "chat") {
+        speak(getVoiceCommandReply(command, currentPath));
+        if (command.action === "open") {
+          const targetAgent = command.agentId?.toLowerCase();
+          const currentAgent = currentPath.split("/")[2]?.toLowerCase();
+          if (targetAgent && currentAgent !== targetAgent) {
+            router.push(`/agents/${targetAgent}?chat=open`);
+          } else {
+            window.dispatchEvent(
+              new CustomEvent("agent-chat-control", { detail: { action: "open" } }),
+            );
+          }
+        } else if (command.action === "close") {
+          window.dispatchEvent(
+            new CustomEvent("agent-chat-control", { detail: { action: "close" } }),
+          );
+        }
+        return;
+      }
+
+      if (command.type === "dictate") {
+        speak(getVoiceCommandReply(command, currentPath));
+        const targetAgent = command.agentId?.toLowerCase();
+        const currentAgent = currentPath.split("/")[2]?.toLowerCase();
+        if (targetAgent && currentAgent !== targetAgent) {
+          try {
+            sessionStorage.setItem(
+              "pending-agent-chat-message",
+              JSON.stringify({
+                text: command.text,
+                submit: command.submit,
+              }),
+            );
+          } catch {}
+          router.push(`/agents/${targetAgent}?chat=open`);
+        } else {
+          window.dispatchEvent(
+            new CustomEvent("agent-chat-dictate", {
+              detail: { text: command.text, submit: command.submit },
+            }),
+          );
+        }
         return;
       }
 
@@ -431,6 +569,20 @@ export default function VoiceAssistant() {
         } catch {}
         recognitionRef.current = null;
       }
+      if (audioRef.current) {
+        try {
+          audioRef.current.pause();
+        } catch {}
+        audioRef.current = null;
+      }
+      if (audioUrlRef.current) {
+        URL.revokeObjectURL(audioUrlRef.current);
+        audioUrlRef.current = null;
+      }
+      if (speakAbortControllerRef.current) {
+        speakAbortControllerRef.current.abort();
+        speakAbortControllerRef.current = null;
+      }
       if (typeof window !== "undefined" && window.speechSynthesis) {
         window.speechSynthesis.cancel();
       }
@@ -525,6 +677,20 @@ export default function VoiceAssistant() {
           recognitionRef.current.abort();
         } catch {}
         recognitionRef.current = null;
+      }
+      if (audioRef.current) {
+        try {
+          audioRef.current.pause();
+        } catch {}
+        audioRef.current = null;
+      }
+      if (audioUrlRef.current) {
+        URL.revokeObjectURL(audioUrlRef.current);
+        audioUrlRef.current = null;
+      }
+      if (speakAbortControllerRef.current) {
+        speakAbortControllerRef.current.abort();
+        speakAbortControllerRef.current = null;
       }
       if (typeof window !== "undefined" && window.speechSynthesis) {
         window.speechSynthesis.cancel();

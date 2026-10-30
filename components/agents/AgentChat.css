@@ -143,6 +143,57 @@
   box-shadow: 0 0.1875rem 0.75rem rgba(0, 0, 0, 0.22);
 }
 
+.agent-chat-message-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  margin-top: 0.375rem;
+  padding-top: 0.25rem;
+}
+
+.agent-chat-audio-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3125rem;
+  padding: 0.1875rem 0.5rem;
+  border: 0.0625rem solid rgba(34, 211, 238, 0.25);
+  border-radius: 99rem;
+  background: rgba(8, 145, 178, 0.12);
+  color: #a5f3fc;
+  font-family: var(--font-jetbrains-mono), monospace;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.agent-chat-audio-btn:hover {
+  background: rgba(8, 145, 178, 0.25);
+  border-color: rgba(34, 211, 238, 0.5);
+  color: #e0f2fe;
+}
+
+.agent-chat-audio-btn svg {
+  width: 0.8125rem;
+  height: 0.8125rem;
+}
+
+.agent-chat-audio-btn.is-playing {
+  background: rgba(239, 68, 68, 0.18);
+  border-color: rgba(239, 68, 68, 0.5);
+  color: #fca5a5;
+  animation: pulse-audio 1.5s infinite alternate;
+}
+
+@keyframes pulse-audio {
+  0% {
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4);
+  }
+  100% {
+    box-shadow: 0 0 0.5rem 0.125rem rgba(239, 68, 68, 0.3);
+  }
+}
+
 .agent-chat-body {
   display: flex;
   flex-direction: column;
@@ -299,6 +350,72 @@
 .agent-chat-form-footer > span {
   color: #72869b;
   font-size: 0.625rem;
+}
+
+.agent-chat-form-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.agent-chat-dictate-button {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-width: 2.25rem !important;
+  width: 2.25rem;
+  height: 2.25rem;
+  padding: 0 !important;
+  border: 0.0625rem solid rgba(34, 211, 238, 0.35);
+  border-radius: 0.5rem;
+  background: rgba(8, 145, 178, 0.15);
+  color: #a5f3fc;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.agent-chat-dictate-button svg {
+  width: 1.125rem;
+  height: 1.125rem;
+  stroke: currentColor;
+  stroke-width: 1.8;
+}
+
+.agent-chat-dictate-button:hover:not(:disabled) {
+  background: rgba(8, 145, 178, 0.3);
+  color: #38bdf8;
+  border-color: rgba(56, 189, 248, 0.6);
+}
+
+.agent-chat-dictate-button.is-dictating {
+  background: rgba(239, 68, 68, 0.2);
+  border-color: #ef4444;
+  color: #fca5a5;
+  animation: pulse-border 1.5s infinite;
+}
+
+.agent-chat-dictate-pulse {
+  position: absolute;
+  inset: -0.25rem;
+  border-radius: 0.625rem;
+  border: 1px solid rgba(239, 68, 68, 0.6);
+  animation: pulse-ring 1.5s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+  pointer-events: none;
+}
+
+@keyframes pulse-ring {
+  0% {
+    transform: scale(0.95);
+    opacity: 0.8;
+  }
+  50% {
+    transform: scale(1.15);
+    opacity: 0.2;
+  }
+  100% {
+    transform: scale(0.95);
+    opacity: 0.8;
+  }
 }
 
 .agent-chat-form button {

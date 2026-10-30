@@ -2,7 +2,11 @@ import { describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 
-import { buildConversationPayload, type ChatMessage } from "./AgentChat";
+import {
+  buildConversationPayload,
+  cleanTextForSpeech,
+  type ChatMessage,
+} from "./AgentChat";
 import { requestSchema, teamInstructions } from "../../app/api/agents/chat/route";
 
 describe("AgentChat payload building and validation", () => {
@@ -127,5 +131,15 @@ describe("AgentChat payload building and validation", () => {
     if (parsed.success) {
       expect((parsed.data as Record<string, unknown>).marketContext).toBeUndefined();
     }
+  });
+
+  it("cleans markdown and URLs for natural speech synthesis", () => {
+    const raw = "Here is the **market summary**:\n* NIFTY is up 0.5%.\n* Check https://example.com for details.";
+    const cleaned = cleanTextForSpeech(raw);
+
+    expect(cleaned).not.toContain("**");
+    expect(cleaned).toContain("market summary");
+    expect(cleaned).not.toContain("https://");
+    expect(cleaned).toBe("Here is the market summary: NIFTY is up 0.5%. Check for details.");
   });
 });
