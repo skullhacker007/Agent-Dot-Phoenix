@@ -38,6 +38,7 @@ const MASTER_TIMEOUT_MS = 15_000;
  */
 export const DEFAULT_INDIAN_INDICES: InstrumentConfig[] = [
   { instrument: "NSE_INDEX|Nifty 50", label: "Nifty 50", group: "NSE indices" },
+  { instrument: "BSE_INDEX|SENSEX", label: "BSE Sensex", group: "BSE indices" },
   { instrument: "NSE_INDEX|Nifty Bank", label: "Nifty Bank", group: "NSE indices" },
   { instrument: "NSE_INDEX|NIFTY IT", label: "Nifty IT", group: "NSE indices" },
   { instrument: "NSE_INDEX|Nifty Auto", label: "Nifty Auto", group: "NSE indices" },
@@ -92,15 +93,34 @@ export const DEFAULT_INDIAN_EQUITIES: InstrumentConfig[] = [
   { instrument: "NSE_EQ|INE437A01024", label: "Apollo Hospitals", group: "NSE equities", symbol: "APOLLOHOSP" },
   { instrument: "NSE_EQ|INE361B01024", label: "Divi's Laboratories", group: "NSE equities", symbol: "DIVISLAB" },
   { instrument: "NSE_EQ|INE263A01024", label: "Bharat Electronics", group: "NSE equities", symbol: "BEL" },
-  { instrument: "NSE_EQ|INE721A01013", label: "Shriram Finance", group: "NSE equities", symbol: "SHRIRAMFIN" },
+  { instrument: "NSE_EQ|INE721A01047", label: "Shriram Finance", group: "NSE equities", symbol: "SHRIRAMFIN" },
   { instrument: "NSE_EQ|INE849A01020", label: "Trent", group: "NSE equities", symbol: "TRENT" },
-  { instrument: "NSE_EQ|INE758T01015", label: "Jio Financial Services", group: "NSE equities", symbol: "JIOFIN" },
+  { instrument: "NSE_EQ|INE758E01017", label: "Jio Financial Services", group: "NSE equities", symbol: "JIOFIN" },
   { instrument: "NSE_EQ|INE192A01025", label: "Tata Consumer Products", group: "NSE equities", symbol: "TATACONSUM" },
   { instrument: "NSE_EQ|INE029A01011", label: "Bharat Petroleum", group: "NSE equities", symbol: "BPCL" },
   { instrument: "NSE_EQ|INE095A01012", label: "IndusInd Bank", group: "NSE equities", symbol: "INDUSINDBK" },
   { instrument: "NSE_EQ|INE123W01016", label: "SBI Life Insurance", group: "NSE equities", symbol: "SBILIFE" },
   { instrument: "NSE_EQ|INE795G01014", label: "HDFC Life Insurance", group: "NSE equities", symbol: "HDFCLIFE" },
+  { instrument: "NSE_EQ|INE742F01042", label: "Adani Ports", group: "NSE equities", symbol: "ADANIPORTS" },
+  { instrument: "NSE_EQ|INE239A01024", label: "Nestle India", group: "NSE equities", symbol: "NESTLEIND" },
+  { instrument: "NSE_EQ|INE028A01039", label: "Bank of Baroda", group: "NSE equities", symbol: "BANKBARODA" },
+  { instrument: "NSE_EQ|INE160A01022", label: "Punjab National Bank", group: "NSE equities", symbol: "PNB" },
+  { instrument: "NSE_EQ|INE171A01029", label: "Federal Bank", group: "NSE equities", symbol: "FEDERALBNK" },
+  { instrument: "NSE_EQ|INE092T01019", label: "IDFC First Bank", group: "NSE equities", symbol: "IDFCFIRSTB" },
+  { instrument: "NSE_EQ|INE949L01017", label: "AU Small Finance Bank", group: "NSE equities", symbol: "AUBANK" },
+  { instrument: "NSE_EQ|INE545U01014", label: "Bandhan Bank", group: "NSE equities", symbol: "BANDHANBNK" },
+  { instrument: "NSE_EQ|INE646L01027", label: "InterGlobe Aviation", group: "NSE equities", symbol: "INDIGO" },
+  { instrument: "NSE_EQ|INE027H01010", label: "Max Healthcare Institute", group: "NSE equities", symbol: "MAXHEALTH" },
+  { instrument: "NSE_EQ|INE476A01022", label: "Canara Bank", group: "NSE equities", symbol: "CANBK" },
+  { instrument: "NSE_EQ|INE692A01016", label: "Union Bank of India", group: "NSE equities", symbol: "UNIONBANK" },
+  { instrument: "NSE_EQ|INE758T01015", label: "Zomato Limited", group: "NSE equities", symbol: "ZOMATO" },
 ];
+
+export {
+  NIFTY_50_SYMBOLS,
+  NIFTY_BANK_SYMBOLS,
+  SENSEX_SYMBOLS,
+} from "../../lib/market-baskets";
 
 export const DEFAULT_INDIAN_FUTURES: InstrumentConfig[] = [
   { instrument: "NSE_FO|48699", label: "Bank Nifty Futures", group: "NSE futures", lotSize: 15, expiry: "2026-11-26", tickSize: 0.05 },
@@ -126,7 +146,7 @@ export const DEFAULT_INDIAN_COMMODITIES: InstrumentConfig[] = [
   { instrument: "MCX_FO|584777", label: "Crude Oil Futures", group: "MCX commodities", lotSize: 100, expiry: "2026-11-19", tickSize: 1.0 },
   { instrument: "MCX_FO|570750", label: "Natural Gas Futures", group: "MCX commodities", lotSize: 1250, expiry: "2026-11-25", tickSize: 0.1 },
   { instrument: "MCX_FO|587161", label: "Copper Futures", group: "MCX commodities", lotSize: 2500, expiry: "2026-11-30", tickSize: 0.05 },
-  { instrument: "MCX_FO|579520", label: "Silver 226000 PE Option", group: "MCX commodities", lotSize: 30, strikePrice: 226000, expiry: "2026-12-05", tickSize: 1.0 },
+  { instrument: "MCX_FO|587162", label: "Zinc Futures", group: "MCX commodities", lotSize: 5000, expiry: "2026-11-30", tickSize: 0.05 },
 ];
 
 export const DEFAULT_INDIAN_BONDS: InstrumentConfig[] = [

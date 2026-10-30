@@ -585,7 +585,7 @@ describe("VisionMarketDataPanel Derivatives Open Interest and Metadata", () => {
     expect(screen.getByText("45.00 L")).toBeInTheDocument();
     expect(screen.getByText("OI Day High")).toBeInTheDocument();
     expect(screen.getByText("48.00 L")).toBeInTheDocument();
-    expect(screen.getByText("Contract Lot Size")).toBeInTheDocument();
+    expect(screen.getByText("Lot Size")).toBeInTheDocument();
     expect(screen.getByText("25 units")).toBeInTheDocument();
     expect(screen.getByText("Strike Price")).toBeInTheDocument();
     expect(screen.getByText("₹27,000.00")).toBeInTheDocument();
@@ -728,7 +728,7 @@ describe("VisionMarketDataPanel Upstox V2 Extended Metrics (52W Range, LTQ, ISIN
   });
 
   it("places type, date, lot, and tick size tags in a metadata row below the instrument name", async () => {
-    const { container } = render(<VisionMarketDataPanel />);
+    render(<VisionMarketDataPanel />);
 
     const table = await screen.findByRole("table");
     await waitFor(() => {
@@ -753,5 +753,347 @@ describe("VisionMarketDataPanel Upstox V2 Extended Metrics (52W Range, LTQ, ISIN
     expect(tags[0]).toHaveTextContent("OPTION");
     expect(tags[1]).toHaveTextContent("2026-11-26");
     expect(tags[2]).toHaveTextContent("Lot: 25");
+  });
+
+  describe("VisionMarketDataPanel Index Basket Selector & IPOs", () => {
+    const basketSnapshot = {
+      status: {
+        ...mockSnapshot.status,
+        dataPointCount: 4,
+      },
+      dataPoints: [
+        {
+          instrument: "NSE_EQ|INE002A01018",
+          label: "Reliance Industries",
+          group: "NSE equities",
+          quote: {
+            symbol: "RELIANCE",
+            name: "Reliance Industries",
+            value: 2800,
+            currency: "INR",
+            change: 25,
+            changePercent: 0.9,
+            observedAtMs: Date.now(),
+            previousClose: 2775,
+            open: 2780,
+            high: 2820,
+            low: 2770,
+            close: 2800,
+            volume: 5000000,
+          },
+          delay: "realtime",
+          supportsRealtimeStream: true,
+        },
+        {
+          instrument: "NSE_EQ|INE040A01034",
+          label: "HDFC Bank",
+          group: "NSE equities",
+          quote: {
+            symbol: "HDFCBANK",
+            name: "HDFC Bank",
+            value: 1650,
+            currency: "INR",
+            change: -10,
+            changePercent: -0.6,
+            observedAtMs: Date.now(),
+            previousClose: 1660,
+            open: 1655,
+            high: 1665,
+            low: 1640,
+            close: 1650,
+            volume: 4000000,
+          },
+          delay: "realtime",
+          supportsRealtimeStream: true,
+        },
+        {
+          instrument: "NSE_EQ|INE028A01039",
+          label: "Bank of Baroda",
+          group: "NSE equities",
+          quote: {
+            symbol: "BANKBARODA",
+            name: "Bank of Baroda",
+            value: 240,
+            currency: "INR",
+            change: -2,
+            changePercent: -0.8,
+            observedAtMs: Date.now(),
+            previousClose: 242,
+            open: 241,
+            high: 243,
+            low: 238,
+            close: 240,
+            volume: 3000000,
+          },
+          delay: "realtime",
+          supportsRealtimeStream: true,
+        },
+        {
+          instrument: "NSE_EQ|CUSTOM1",
+          label: "Unknown Stock",
+          group: "NSE equities",
+          quote: {
+            symbol: "UNKNOWN",
+            name: "Unknown Corp",
+            value: 100,
+            currency: "INR",
+            change: 1,
+            changePercent: 1.0,
+            observedAtMs: Date.now(),
+            previousClose: 99,
+            open: 99,
+            high: 101,
+            low: 98,
+            close: 100,
+            volume: 1000,
+          },
+          delay: "realtime",
+          supportsRealtimeStream: true,
+        },
+      ],
+    };
+
+    it("filters to Nifty 50, Nifty Bank, and Sensex when selected in Basket dropdown", async () => {
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          snapshot: basketSnapshot,
+          dataPoints: basketSnapshot.dataPoints,
+        }),
+      });
+
+      render(<VisionMarketDataPanel />);
+      const select = await screen.findByRole("combobox", { name: /Basket/i });
+      expect(select).toBeInTheDocument();
+
+      const table = await screen.findByRole("table");
+
+      // Initially All Equities: wait for data to load
+      await waitFor(() => {
+        expect(within(table).getByText("RELIANCE")).toBeInTheDocument();
+      });
+      expect(within(table).getByText("HDFCBANK")).toBeInTheDocument();
+      expect(within(table).getByText("BANKBARODA")).toBeInTheDocument();
+      expect(within(table).getByText("UNKNOWN")).toBeInTheDocument();
+
+      // Switch to NIFTY BANK: HDFCBANK & BANKBARODA should be present, RELIANCE & UNKNOWN should not
+      fireEvent.change(select, { target: { value: "niftybank" } });
+      await waitFor(() => {
+        expect(within(table).getByText("BANKBARODA")).toBeInTheDocument();
+      });
+      expect(within(table).getByText("HDFCBANK")).toBeInTheDocument();
+      expect(within(table).queryByText("RELIANCE")).not.toBeInTheDocument();
+      expect(within(table).queryByText("UNKNOWN")).not.toBeInTheDocument();
+
+      // Switch to SENSEX: RELIANCE & HDFCBANK present, BANKBARODA & UNKNOWN should not
+      fireEvent.change(select, { target: { value: "sensex" } });
+      await waitFor(() => {
+        expect(within(table).getByText("RELIANCE")).toBeInTheDocument();
+      });
+      expect(within(table).getByText("HDFCBANK")).toBeInTheDocument();
+      expect(within(table).queryByText("BANKBARODA")).not.toBeInTheDocument();
+      expect(within(table).queryByText("UNKNOWN")).not.toBeInTheDocument();
+
+      // Switch to Nifty 50: RELIANCE & HDFCBANK present, BANKBARODA & UNKNOWN should not
+      fireEvent.change(select, { target: { value: "nifty50" } });
+      await waitFor(() => {
+        expect(within(table).getByText("RELIANCE")).toBeInTheDocument();
+      });
+      expect(within(table).getByText("HDFCBANK")).toBeInTheDocument();
+      expect(within(table).queryByText("BANKBARODA")).not.toBeInTheDocument();
+      expect(within(table).queryByText("UNKNOWN")).not.toBeInTheDocument();
+    });
+
+    it("renders the Segregated IPO Tab with KPI summary cards and segregated items", async () => {
+      global.fetch = vi.fn((url: string | URL | Request) => {
+        const urlStr = String(url);
+        if (urlStr.includes("/api/ipos")) {
+          return Promise.resolve({
+            ok: true,
+            json: async () => ({
+              success: true,
+              data: {
+                open: [
+                  {
+                    id: "open-ipo-1",
+                    symbol: "OPENONE",
+                    name: "Open Mainboard Tech IPO",
+                    status: "open",
+                    issue_type: "regular",
+                    issue_size: 500,
+                    minimum_price: 100,
+                    maximum_price: 110,
+                    lot_size: 135,
+                    isin: "INE001A01010",
+                    bidding_start_date: "2026-10-30",
+                    bidding_end_date: "2026-11-03",
+                    total_subscription: "3.5",
+                  },
+                ],
+                upcoming: [
+                  {
+                    id: "upcoming-sme-1",
+                    symbol: "UPCSME",
+                    name: "Upcoming SME Solar IPO",
+                    status: "upcoming",
+                    issue_type: "sme",
+                    issue_size: 40,
+                    minimum_price: 50,
+                    maximum_price: 55,
+                    lot_size: 2000,
+                    isin: "INE002B02020",
+                    bidding_start_date: "2026-11-05",
+                    bidding_end_date: "2026-11-08",
+                  },
+                ],
+                all: [
+                  {
+                    id: "open-ipo-1",
+                    symbol: "OPENONE",
+                    name: "Open Mainboard Tech IPO",
+                    status: "open",
+                    issue_type: "regular",
+                    issue_size: 500,
+                    minimum_price: 100,
+                    maximum_price: 110,
+                    lot_size: 135,
+                    isin: "INE001A01010",
+                    bidding_start_date: "2026-10-30",
+                    bidding_end_date: "2026-11-03",
+                    total_subscription: "3.5",
+                  },
+                  {
+                    id: "upcoming-sme-1",
+                    symbol: "UPCSME",
+                    name: "Upcoming SME Solar IPO",
+                    status: "upcoming",
+                    issue_type: "sme",
+                    issue_size: 40,
+                    minimum_price: 50,
+                    maximum_price: 55,
+                    lot_size: 2000,
+                    isin: "INE002B02020",
+                    bidding_start_date: "2026-11-05",
+                    bidding_end_date: "2026-11-08",
+                  },
+                ],
+                counts: {
+                  total: 2,
+                  open: 1,
+                  upcoming: 1,
+                  mainboard: 1,
+                  sme: 1,
+                },
+              },
+            }),
+          });
+        }
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            snapshot: basketSnapshot,
+            dataPoints: basketSnapshot.dataPoints,
+          }),
+        });
+      }) as unknown as typeof fetch;
+
+      render(<VisionMarketDataPanel />);
+
+      // Find the IPO tab button and click it
+      const ipoTabBtn = await screen.findByRole("button", { name: /IPOs/i });
+      fireEvent.click(ipoTabBtn);
+
+      // Verify KPI banner cards are displayed
+      await waitFor(() => {
+        expect(screen.getByText("Open for Bidding")).toBeInTheDocument();
+        expect(screen.getByText("Upcoming Pipeline")).toBeInTheDocument();
+        expect(screen.getByText("Mainboard Issues")).toBeInTheDocument();
+        expect(screen.getByText("SME Issues")).toBeInTheDocument();
+      });
+
+      // Verify IPO cards are rendered with details
+      expect(screen.getByText("Open Mainboard Tech IPO")).toBeInTheDocument();
+      expect(screen.getByText("Upcoming SME Solar IPO")).toBeInTheDocument();
+      expect(screen.getByText("3.50x")).toBeInTheDocument();
+      expect(screen.getByText("₹100 – ₹110")).toBeInTheDocument();
+      expect(screen.getByText("₹500.00 Cr")).toBeInTheDocument();
+
+      // Verify Lot Size and Minimum Investment calculations
+      expect(screen.getByText("135 Shares")).toBeInTheDocument();
+      expect(screen.getByText("₹14,850")).toBeInTheDocument();
+      expect(screen.getByText("2000 Shares")).toBeInTheDocument();
+      expect(screen.getByText("₹1,10,000")).toBeInTheDocument();
+
+      // Verify Retail Lot Calculator drawer toggles and computes mandate amounts in dedicated sidebar
+      const calcButtons = screen.getAllByRole("button", { name: /Retail Lot Calculator/i });
+      expect(calcButtons.length).toBeGreaterThan(0);
+      fireEvent.click(calcButtons[0]);
+
+      await waitFor(() => {
+        expect(screen.getByRole("dialog", { name: /Retail Lot Calculator Sidebar/i })).toBeInTheDocument();
+        expect(screen.getByText("Select Lots:")).toBeInTheDocument();
+        expect(screen.getByText("Total Mandate Amount:")).toBeInTheDocument();
+        expect(screen.getAllByRole("button", { name: /Copy Clean/i }).length).toBeGreaterThan(0);
+        expect(screen.getByRole("button", { name: /Copy Formatted/i })).toBeInTheDocument();
+        expect(screen.getAllByRole("button", { name: /Copy.*Summary/i }).length).toBeGreaterThan(0);
+      });
+
+      // Test ASBA Form Helper toggle
+      const asbaHelperBtn = screen.getByRole("button", { name: /ASBA Form Helper/i });
+      fireEvent.click(asbaHelperBtn);
+      expect(screen.getByText("Bank NetBanking ASBA Form Fields")).toBeInTheDocument();
+
+      // Test Copy Clean action
+      const writeTextMock = vi.fn().mockResolvedValue(undefined);
+      Object.assign(navigator, { clipboard: { writeText: writeTextMock } });
+      const copyCleanBtns = screen.getAllByRole("button", { name: /Copy Clean/i });
+      fireEvent.click(copyCleanBtns[0]);
+      expect(writeTextMock).toHaveBeenCalled();
+
+      // Verify closing the sidebar drawer restores the view without affecting the card layout
+      const closeSidebarBtns = screen.getAllByRole("button", { name: /Close Calculator/i });
+      expect(closeSidebarBtns.length).toBeGreaterThan(0);
+      fireEvent.click(closeSidebarBtns[0]);
+
+      await waitFor(() => {
+        expect(screen.queryByRole("dialog", { name: /Retail Lot Calculator Sidebar/i })).not.toBeInTheDocument();
+      });
+
+      // Verify View Mode Toggle: switch from Cards to Table view
+      const tableViewBtn = screen.getByRole("button", { name: /Comparison Table View/i });
+      fireEvent.click(tableViewBtn);
+
+      await waitFor(() => {
+        expect(screen.getByRole("table")).toBeInTheDocument();
+        expect(screen.getByText("Company & Symbol")).toBeInTheDocument();
+        expect(screen.getByText("Bidding Period")).toBeInTheDocument();
+      });
+    });
+
+    it("renders interactive refresh button with animated SVG icon in modal depth view", async () => {
+      render(<VisionMarketDataPanel />);
+
+      const table = await screen.findByRole("table");
+      const viewButtons = within(table).getAllByRole("button", { name: "View" });
+      fireEvent.click(viewButtons[0]);
+
+      const dialog = await screen.findByRole("dialog");
+      expect(dialog).toBeInTheDocument();
+
+      // Refresh button should be present with proper accessible name and class
+      const refreshBtn = screen.getByRole("button", { name: /Refresh live quote and depth/i });
+      expect(refreshBtn).toBeInTheDocument();
+      expect(refreshBtn).toHaveClass("vision-modal-refresh-btn");
+
+      // Verify the SVG icon is present inside the refresh button
+      const svgIcon = refreshBtn.querySelector("svg.vision-refresh-svg");
+      expect(svgIcon).toBeInTheDocument();
+
+      // Trigger refresh
+      fireEvent.click(refreshBtn);
+
+      // Verify fetch was called to refresh data
+      expect(global.fetch).toHaveBeenCalled();
+    });
   });
 });

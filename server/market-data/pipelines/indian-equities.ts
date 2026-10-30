@@ -331,10 +331,12 @@ function findQuoteInMap(
       const parsed = upstoxDataSchema.safeParse(dataMap[symbolKeyWithPrefix]);
       if (parsed.success) return { data: parsed.data, matchedKey: symbolKeyWithPrefix };
     }
-    const defaultSymbolKey = `NSE_EQ:${symbolHint.toUpperCase()}`;
-    if (dataMap[defaultSymbolKey]) {
-      const parsed = upstoxDataSchema.safeParse(dataMap[defaultSymbolKey]);
-      if (parsed.success) return { data: parsed.data, matchedKey: defaultSymbolKey };
+    if (prefix === "NSE_EQ" || !instrumentKey.includes("|")) {
+      const defaultSymbolKey = `NSE_EQ:${symbolHint.toUpperCase()}`;
+      if (dataMap[defaultSymbolKey]) {
+        const parsed = upstoxDataSchema.safeParse(dataMap[defaultSymbolKey]);
+        if (parsed.success) return { data: parsed.data, matchedKey: defaultSymbolKey };
+      }
     }
   }
 
@@ -471,8 +473,11 @@ export async function fetchIndianEquities(
   );
 
   const points: MarketDataPoint[] = [];
+  const seenInstruments = new Set<string>();
 
   for (const config of instruments) {
+    if (seenInstruments.has(config.instrument)) continue;
+    seenInstruments.add(config.instrument);
     const matched = findQuoteInMap(dataMap, config.instrument, config.symbol);
     if (!matched) continue;
     const { data, matchedKey } = matched;

@@ -120,15 +120,16 @@
 }
 
 .agent-model-options::-webkit-scrollbar-thumb {
-  border: 1px solid transparent;
-  border-radius: 999px;
-  background: rgba(148, 163, 184, 0.32);
-  background-clip: padding-box;
+  border: 2px solid transparent;
+  border-radius: 9999px;
+  background-color: rgba(148, 163, 184, 0.32);
+  background-clip: content-box;
+  transition: background-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .agent-model-options::-webkit-scrollbar-thumb:hover {
-  background: rgba(103, 232, 249, 0.62);
-  background-clip: padding-box;
+  background-color: rgba(103, 232, 249, 0.7);
+  box-shadow: 0 0 6px rgba(103, 232, 249, 0.4);
 }
 
 .agent-model-option {
