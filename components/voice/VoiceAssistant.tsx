@@ -5,7 +5,6 @@ import {
   useEffect,
   useRef,
   useState,
-  useSyncExternalStore,
 } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import {
@@ -14,10 +13,11 @@ import {
 } from "@/lib/voice-navigation";
 import "./VoiceAssistant.css";
 
-const STORAGE_KEY = "voice_assistant_active";
-const ACTIVE_CHANGE_EVENT = "voice-assistant-active-change";
+export const STORAGE_KEY = "voice_assistant_active";
+export const ACTIVE_CHANGE_EVENT = "voice-assistant-active-change";
+export const VOICE_TOGGLE_EVENT = "voice-assistant-toggle";
 
-function subscribeToVoiceActive(callback: () => void) {
+export function subscribeToVoiceActive(callback: () => void) {
   if (typeof window === "undefined") return () => {};
   window.addEventListener("storage", callback);
   window.addEventListener(ACTIVE_CHANGE_EVENT, callback);
@@ -27,13 +27,60 @@ function subscribeToVoiceActive(callback: () => void) {
   };
 }
 
-function getVoiceActiveSnapshot(): boolean {
+export function getVoiceActiveSnapshot(): boolean {
   if (typeof window === "undefined") return false;
   try {
     return localStorage.getItem(STORAGE_KEY) === "true";
   } catch {
     return false;
   }
+}
+
+export function toggleVoiceAssistant() {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new CustomEvent(VOICE_TOGGLE_EVENT));
+}
+
+export function VoiceHeaderButton({ className = "" }: { className?: string }) {
+  const [activated, setActivated] = useState(false);
+
+  useEffect(() => {
+    setActivated(getVoiceActiveSnapshot());
+    return subscribeToVoiceActive(() => {
+      setActivated(getVoiceActiveSnapshot());
+    });
+  }, []);
+
+  return (
+    <div
+      id="voice-assistant-slot"
+      className={`voice-assistant-slot ${className}`.trim()}
+      aria-label="Voice Assistant"
+    >
+      <button
+        className={`voice-assistant-button voice-assistant-header-button ${
+          activated ? "is-active" : "is-inactive"
+        }`}
+        type="button"
+        onClick={toggleVoiceAssistant}
+        aria-label={
+          activated ? "Mute voice assistant" : "Activate voice assistance"
+        }
+        aria-pressed={activated}
+        title={
+          activated
+            ? "Voice assistant active (Click to mute)"
+            : "Activate voice assistance (Alt+Shift+V)"
+        }
+      >
+        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <rect x="9" y="3" width="6" height="12" rx="3" />
+          <path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 18v3m-4 0h8" />
+          {!activated && <path d="m4 4 16 16" />}
+        </svg>
+      </button>
+    </div>
+  );
 }
 
 function getVoiceActiveServerSnapshot(): boolean {
@@ -86,11 +133,18 @@ export default function VoiceAssistant() {
   const router = useRouter();
   const compact = pathname !== "/";
 
-  const activated = useSyncExternalStore(
-    subscribeToVoiceActive,
-    getVoiceActiveSnapshot,
-    getVoiceActiveServerSnapshot,
-  );
+  const [activated, setActivated] = useState(false);
+
+  useEffect(() => {
+    setActivated(getVoiceActiveSnapshot());
+    const onActiveChange = () => setActivated(getVoiceActiveSnapshot());
+    window.addEventListener(ACTIVE_CHANGE_EVENT, onActiveChange);
+    window.addEventListener("storage", onActiveChange);
+    return () => {
+      window.removeEventListener(ACTIVE_CHANGE_EVENT, onActiveChange);
+      window.removeEventListener("storage", onActiveChange);
+    };
+  }, []);
 
   const [status, setStatus] = useState<VoiceStatus>("idle");
   const [transcript, setTranscript] = useState("");
@@ -698,35 +752,52 @@ export default function VoiceAssistant() {
     };
   }, [startListening]);
 
+  useEffect(() => {
+    const onToggle = () => {
+      startListening();
+    };
+    window.addEventListener(VOICE_TOGGLE_EVENT, onToggle);
+    return () => {
+      window.removeEventListener(VOICE_TOGGLE_EVENT, onToggle);
+    };
+  }, [startListening]);
+
   const displayedMessage =
     transcript || (activated ? "Voice assistant activated sir." : message);
+
+  const hasHeaderButton =
+    pathname.startsWith("/agents/") && !pathname.endsWith("/settings");
+
+  const micButton = (
+    <button
+      className={`voice-assistant-button ${activated ? "is-active" : "is-inactive"}`}
+      type="button"
+      onClick={startListening}
+      aria-label={
+        activated ? "Mute voice assistant" : "Activate voice assistance"
+      }
+      aria-pressed={activated}
+      title={
+        activated
+          ? "Voice assistant active (Click to mute)"
+          : "Activate voice assistance (Alt+Shift+V)"
+      }
+    >
+      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <rect x="9" y="3" width="6" height="12" rx="3" />
+        <path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 18v3m-4 0h8" />
+        {!activated && <path d="m4 4 16 16" />}
+      </svg>
+    </button>
+  );
 
   return (
     <aside
       className={`voice-assistant voice-assistant-${status} ${
         compact ? "voice-assistant-compact" : ""
-      }`}
+      } ${hasHeaderButton ? "voice-assistant-has-slot" : ""}`}
     >
-      <button
-        className={`voice-assistant-button ${activated ? "is-active" : "is-inactive"}`}
-        type="button"
-        onClick={startListening}
-        aria-label={
-          activated ? "Mute voice assistant" : "Activate voice assistance"
-        }
-        aria-pressed={activated}
-        title={
-          activated
-            ? "Voice assistant active (Click to mute)"
-            : "Activate voice assistance (Alt+Shift+V)"
-        }
-      >
-        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-          <rect x="9" y="3" width="6" height="12" rx="3" />
-          <path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 18v3m-4 0h8" />
-          {!activated && <path d="m4 4 16 16" />}
-        </svg>
-      </button>
+      {!hasHeaderButton && micButton}
       <div
         className="voice-assistant-copy"
         aria-live="polite"

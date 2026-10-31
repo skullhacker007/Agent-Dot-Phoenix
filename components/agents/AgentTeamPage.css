@@ -55,7 +55,7 @@
 }
 
 .agent-team-header.is-dashboard-header .agent-team-header-actions {
-  padding-right: 44px;
+  padding-right: 0;
 }
 
 .agent-team-settings-link {
@@ -137,8 +137,8 @@
 }
 
 .agent-team-status.status-idle {
-  background: #34d399;
-  box-shadow: 0 0 8px rgba(52, 211, 153, 0.4);
+  background: #64748b;
+  box-shadow: none;
 }
 
 .agent-team-status.status-active {

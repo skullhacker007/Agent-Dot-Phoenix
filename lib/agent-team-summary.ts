@@ -21,43 +21,53 @@ export function resolveAgentTeamSummary(
   activity: AgentActivity | null,
   loading: boolean,
 ): AgentTeamSummary {
-  const hasChatAgent = Boolean(assignedModel);
-  const chatAgentStatus: AgentStatus | null = hasChatAgent
-    ? activity?.status === "error"
+  // Chatbot is an agent on every team page
+  const hasChatAgent = true;
+  const hasConnectedModel = Boolean(assignedModel && assignedModel.trim());
+  const chatAgentStatus: AgentStatus = !hasConnectedModel
+    ? "idle"
+    : activity?.status === "error"
       ? "failed"
-      : "working"
-    : null;
+      : "working";
+
+  if (loading && !dashboard) {
+    return {
+      total: null,
+      working: null,
+      idle: null,
+      issues: null,
+      status: "loading",
+      chatAgentStatus,
+    };
+  }
+
   const counts = dashboard?.counts;
+  const isChatWorking = chatAgentStatus === "working";
+  const isChatIdle = chatAgentStatus === "idle";
+  const isChatFailed = chatAgentStatus === "failed";
+
   const total =
     counts === undefined
-      ? hasChatAgent
-        ? 1
-        : null
-      : counts.total + Number(hasChatAgent);
+      ? 1
+      : counts.total + 1;
   const working =
     counts === undefined
-      ? hasChatAgent
-        ? Number(chatAgentStatus === "working")
-        : null
-      : counts.working + Number(chatAgentStatus === "working");
+      ? Number(isChatWorking)
+      : counts.working + Number(isChatWorking);
   const idle =
     counts === undefined
-      ? hasChatAgent
-        ? 0
-        : null
-      : counts.idle;
+      ? Number(isChatIdle)
+      : counts.idle + Number(isChatIdle);
   const issues =
     counts === undefined
-      ? hasChatAgent
-        ? Number(chatAgentStatus === "failed")
-        : null
+      ? Number(isChatFailed)
       : counts.failed +
         counts.stalled +
-        Number(chatAgentStatus === "failed");
+        Number(isChatFailed);
 
   const statuses: AgentStatus[] = [
     ...(dashboard?.agents.map(({ status }) => status) ?? []),
-    ...(chatAgentStatus ? [chatAgentStatus] : []),
+    chatAgentStatus,
   ];
   const status =
     statuses.length > 0

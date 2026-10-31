@@ -19,6 +19,7 @@ export type AgentChatProps = {
   assignedModel: string | null;
   loading: boolean;
   marketContext?: unknown;
+  embedded?: boolean;
 };
 
 type ChatSpeechRecognitionResult = {
@@ -162,17 +163,14 @@ export default function AgentChat({
   assignedModel,
   loading: modelsLoading,
   marketContext,
+  embedded = false,
 }: AgentChatProps) {
   const assignedModelAvailable = assignedModel !== null;
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [draft, setDraft] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
-  const [open, setOpen] = useState(() => {
-    if (typeof window === "undefined") return false;
-    const urlParams = new URLSearchParams(window.location.search);
-    return urlParams.get("chat") === "open";
-  });
+  const [open, setOpen] = useState(Boolean(embedded));
   const [dictating, setDictating] = useState(false);
   const nextId = useRef(0);
   const submitting = useRef(false);
@@ -180,6 +178,14 @@ export default function AgentChat({
   const formRef = useRef<HTMLFormElement | null>(null);
   const recognitionRef = useRef<ChatRecognition | null>(null);
   const initialDraftRef = useRef("");
+
+  useEffect(() => {
+    if (typeof window === "undefined" || embedded) return;
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get("chat") === "open") {
+      setOpen(true);
+    }
+  }, [embedded]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -518,7 +524,11 @@ export default function AgentChat({
   }
 
   return (
-    <aside className={`agent-chat-widget ${open ? "is-open" : ""}`}>
+    <aside
+      className={`agent-chat-widget ${embedded ? "is-embedded" : ""} ${
+        open ? "is-open" : ""
+      }`}
+    >
       {open ? (
         <section
           className="agent-chat"
@@ -526,18 +536,20 @@ export default function AgentChat({
         >
           <div className="agent-chat-heading">
             <p className="agent-chat-eyebrow">{teamName} ASSISTANT</p>
-            <div className="agent-chat-heading-actions">
-              <button
-                aria-label={`Minimize ${teamName} chat`}
-                className="agent-chat-close"
-                onClick={() => setOpen(false)}
-                type="button"
-              >
-                <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                  <path d="M5 12h14" />
-                </svg>
-              </button>
-            </div>
+            {!embedded && (
+              <div className="agent-chat-heading-actions">
+                <button
+                  aria-label={`Minimize ${teamName} chat`}
+                  className="agent-chat-close"
+                  onClick={() => setOpen(false)}
+                  type="button"
+                >
+                  <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <path d="M5 12h14" />
+                  </svg>
+                </button>
+              </div>
+            )}
           </div>
 
           <div className="agent-chat-transcript" role="log" aria-live="polite">

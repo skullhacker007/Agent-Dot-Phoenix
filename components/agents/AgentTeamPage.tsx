@@ -19,10 +19,12 @@ import {
   testModel,
 } from "@/lib/agent-model-speed-test";
 import { resolveAgentTeamSummary } from "@/lib/agent-team-summary";
+import { useWorkspaceAgents } from "@/lib/agent-workspace";
 import {
   saveAgentModelPreference,
   useAgentModelPreferences,
 } from "@/lib/agent-model-preferences";
+import { VoiceHeaderButton } from "@/components/voice/VoiceAssistant";
 import AgentChat from "./AgentChat";
 import AgentModelSettings from "./AgentModelSettings";
 import VisionMarketDataPanel, {
@@ -90,6 +92,7 @@ export default function AgentTeamPage({
   const [visionMarketContext, setVisionMarketContext] =
     useState<VisionMarketContext | null>(null);
   const modelPreferences = useAgentModelPreferences();
+  const { teamAgents } = useWorkspaceAgents(teamId);
 
   const acceptDashboard = useCallback(
     (payload: unknown) => {
@@ -255,6 +258,21 @@ export default function AgentTeamPage({
 
   const agents = dashboard?.agents ?? [];
   const queuedTasks = dashboard?.tasks ?? [];
+  const workspaceCount = teamAgents.length;
+  const hasConnectedModel = Boolean(assignedModel && assignedModel.trim());
+  const workspaceWorking = hasConnectedModel
+    ? teamAgents.filter(
+        (a) =>
+          a.status === "active" ||
+          a.status === "working" ||
+          a.status === "busy" ||
+          a.status === "online",
+      ).length
+    : 0;
+  const workspaceIdle = hasConnectedModel
+    ? teamAgents.filter((a) => a.status === "idle" || !a.status).length
+    : workspaceCount;
+
   const teamSummary = resolveAgentTeamSummary(
     dashboard,
     assignedModel,
@@ -263,7 +281,20 @@ export default function AgentTeamPage({
   );
   const hasChatAgent = teamSummary.chatAgentStatus !== null;
   const chatAgentStatus = teamSummary.chatAgentStatus;
-  const showAgentMetrics = teamSummary.total !== null;
+  const showAgentMetrics = teamSummary.total !== null || workspaceCount > 0;
+  const displayTotal =
+    workspaceCount > 0
+      ? (teamSummary.total ?? 0) + workspaceCount
+      : teamSummary.total;
+  const displayWorking =
+    workspaceCount > 0
+      ? (teamSummary.working ?? 0) + workspaceWorking
+      : teamSummary.working;
+  const displayIdle =
+    workspaceCount > 0
+      ? (teamSummary.idle ?? 0) + workspaceIdle
+      : teamSummary.idle;
+  const displayIssues = teamSummary.issues;
   const modelSettingsAssignedModel =
     availableModels !== null &&
     assignedModel !== null &&
@@ -330,38 +361,41 @@ export default function AgentTeamPage({
           </div>
           <div className="agent-team-header-actions">
             {view === "dashboard" && (
-              <Link
-                aria-label={`${team.name} settings`}
-                className="agent-team-settings-link"
-                href={`/agents/${team.agentId}/settings`}
-                title="Settings"
-              >
-                <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                  <path
-                    d="M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Z"
-                    stroke="currentColor"
-                    strokeWidth="1.7"
-                  />
-                  <path
-                    d="m19.4 15 .1.1a1.8 1.8 0 1 1-2.5 2.5l-.1-.1a1.8 1.8 0 0 0-3 .9v.2a1.8 1.8 0 1 1-3.6 0v-.2a1.8 1.8 0 0 0-3-.9l-.1.1a1.8 1.8 0 1 1-2.5-2.5l.1-.1a1.8 1.8 0 0 0-.9-3h-.2a1.8 1.8 0 1 1 0-3.6h.2a1.8 1.8 0 0 0 .9-3l-.1-.1a1.8 1.8 0 1 1 2.5-2.5l.1.1a1.8 1.8 0 0 0 3-.9v-.2a1.8 1.8 0 1 1 3.6 0v.2a1.8 1.8 0 0 0 3 .9l.1-.1a1.8 1.8 0 1 1 2.5 2.5l-.1.1a1.8 1.8 0 0 0 .9 3h.2a1.8 1.8 0 1 1 0 3.6h-.2a1.8 1.8 0 0 0-.9 3Z"
-                    stroke="currentColor"
-                    strokeWidth="1.4"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-              </Link>
+              <>
+                <Link
+                  aria-label={`${team.name} settings`}
+                  className="agent-team-settings-link"
+                  href={`/agents/${team.agentId}/settings`}
+                  title="Settings"
+                >
+                  <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <path
+                      d="M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Z"
+                      stroke="currentColor"
+                      strokeWidth="1.7"
+                    />
+                    <path
+                      d="m19.4 15 .1.1a1.8 1.8 0 1 1-2.5 2.5l-.1-.1a1.8 1.8 0 0 0-3 .9v.2a1.8 1.8 0 1 1-3.6 0v-.2a1.8 1.8 0 0 0-3-.9l-.1.1a1.8 1.8 0 1 1-2.5-2.5l.1-.1a1.8 1.8 0 0 0-.9-3h-.2a1.8 1.8 0 1 1 0-3.6h.2a1.8 1.8 0 0 0 .9-3l-.1-.1a1.8 1.8 0 1 1 2.5-2.5l.1.1a1.8 1.8 0 0 0 3-.9v-.2a1.8 1.8 0 1 1 3.6 0v.2a1.8 1.8 0 0 0 3 .9l.1-.1a1.8 1.8 0 1 1 2.5 2.5l-.1.1a1.8 1.8 0 0 0 .9 3h.2a1.8 1.8 0 1 1 0 3.6h-.2a1.8 1.8 0 0 0-.9 3Z"
+                      stroke="currentColor"
+                      strokeWidth="1.4"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                </Link>
+                <VoiceHeaderButton />
+              </>
             )}
           </div>
         </div>
         {view === "dashboard" && (
           <section className="agent-team-stats" aria-label="Team overview">
             {[
-              ["Agents", showAgentMetrics ? teamSummary.total : undefined],
-              ["Working", showAgentMetrics ? teamSummary.working : undefined],
-              ["Idle", showAgentMetrics ? teamSummary.idle : undefined],
+              ["Agents", showAgentMetrics ? displayTotal : undefined],
+              ["Working", showAgentMetrics ? displayWorking : undefined],
+              ["Idle", showAgentMetrics ? displayIdle : undefined],
               [
                 "Issues",
-                showAgentMetrics ? teamSummary.issues : undefined,
+                showAgentMetrics ? displayIssues : undefined,
               ],
             ].map(([label, value]) => (
               <div className="agent-team-stat" key={label}>
@@ -420,10 +454,10 @@ export default function AgentTeamPage({
               <h2>Agents</h2>
             </div>
             <span>
-              {agents.length + Number(hasChatAgent)} registered
+              {agents.length + Number(hasChatAgent) + workspaceCount} registered
             </span>
           </div>
-          {agents.length || hasChatAgent ? (
+          {agents.length || hasChatAgent || workspaceCount ? (
             <div className="agent-team-roster">
               {hasChatAgent && (
                 <article className="agent-roster-card">
@@ -442,7 +476,7 @@ export default function AgentTeamPage({
                   <dl>
                     <div>
                       <dt>Model</dt>
-                      <dd>{assignedModel}</dd>
+                      <dd>{assignedModel ?? "No Model assigned"}</dd>
                     </div>
                     <div>
                       <dt>Estimated session tokens</dt>
@@ -465,6 +499,49 @@ export default function AgentTeamPage({
                   </dl>
                 </article>
               )}
+              {teamAgents.map((agent) => {
+                const effectiveStatus = hasConnectedModel
+                  ? agent.status || "idle"
+                  : "idle";
+                return (
+                  <article className="agent-roster-card" key={agent.id}>
+                    <div className="agent-roster-heading">
+                      <div>
+                        <h3>{agent.name}</h3>
+                        <p>{agent.role || "Worker"}</p>
+                      </div>
+                      <span
+                        aria-label={`${agent.name} status: ${effectiveStatus}`}
+                        className={`agent-team-status status-${
+                          effectiveStatus === "active"
+                            ? "working"
+                            : effectiveStatus
+                        }`}
+                        role="img"
+                        title={effectiveStatus}
+                      />
+                    </div>
+                    <dl>
+                      <div>
+                        <dt>Role</dt>
+                        <dd>{agent.role || "Worker"}</dd>
+                      </div>
+                      <div>
+                        <dt>Task</dt>
+                        <dd>{agent.task || "Operational execution"}</dd>
+                      </div>
+                      <div>
+                        <dt>Tools</dt>
+                        <dd>{agent.tools?.length ? agent.tools.join(", ") : "—"}</dd>
+                      </div>
+                      <div>
+                        <dt>Status</dt>
+                        <dd>{effectiveStatus}</dd>
+                      </div>
+                    </dl>
+                  </article>
+                );
+              })}
               {agents.map((agent) => (
                 <article className="agent-roster-card" key={agent.id}>
                   <div className="agent-roster-heading">
@@ -497,11 +574,11 @@ export default function AgentTeamPage({
                     </div>
                     <div>
                       <dt>Last heartbeat</dt>
-                      <dd>{formatDate(agent.lastHeartbeatAt)}</dd>
+                      <dd suppressHydrationWarning>{formatDate(agent.lastHeartbeatAt)}</dd>
                     </div>
                     <div>
                       <dt>Last success</dt>
-                      <dd>{formatDate(agent.lastSuccessfulExecutionAt)}</dd>
+                      <dd suppressHydrationWarning>{formatDate(agent.lastSuccessfulExecutionAt)}</dd>
                     </div>
                   </dl>
                 </article>
@@ -533,7 +610,7 @@ export default function AgentTeamPage({
                   <div>
                     <h3>{task.title}</h3>
                     <p>{task.description}</p>
-                    <span>
+                    <span suppressHydrationWarning>
                       {task.agentName ?? "Team queue"} ·{" "}
                       {new Date(task.createdAt).toLocaleString()}
                     </span>

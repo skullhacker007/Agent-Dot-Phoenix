@@ -15,6 +15,10 @@ import {
 import type { AgentActivity } from "@/lib/agent-activity";
 import { useAgentModelPreferences } from "@/lib/agent-model-preferences";
 import { resolveAgentTeamSummary } from "@/lib/agent-team-summary";
+import {
+  useWorkspaceAgents,
+  type WorkspaceAgent,
+} from "@/lib/agent-workspace";
 import "./RobotAvatar.css";
 
 const Spline = dynamic(() => import("@splinetool/react-spline"), {
@@ -114,6 +118,7 @@ export default function RobotAvatar() {
   >({});
   const [monitoringLoading, setMonitoringLoading] = useState(true);
   const modelPreferences = useAgentModelPreferences();
+  const { byTeam: workspaceByTeam } = useWorkspaceAgents();
   useEffect(() => {
     const refreshActivity = (teamId: TeamId, activity: AgentActivity | null) => {
       setChatActivity((current) => {
@@ -275,6 +280,7 @@ export default function RobotAvatar() {
                 visibleAgentCount
               }
               selected={selectedAgent === agent.agentId}
+              workspaceAgents={workspaceByTeam[agent.id] ?? []}
               onSelect={() => selectAgent(agent.agentId)}
             />
           ))}
@@ -300,11 +306,14 @@ export default function RobotAvatar() {
                 visibleAgentCount
               }
               selected={selectedAgent === agent.agentId}
+              workspaceAgents={workspaceByTeam[agent.id] ?? []}
               onSelect={() => selectAgent(agent.agentId)}
             />
           ))}
         </div>
       </section>
+
+
     </main>
   );
 }
@@ -452,6 +461,7 @@ function AgentCard({
   assignedModel,
   loading,
   revealed,
+  workspaceAgents = [],
   selected,
   onSelect,
 }: {
@@ -461,6 +471,7 @@ function AgentCard({
   assignedModel: string | null;
   loading: boolean;
   revealed: boolean;
+  workspaceAgents?: WorkspaceAgent[];
   selected: boolean;
   onSelect: () => void;
 }) {
@@ -478,7 +489,23 @@ function AgentCard({
       : status === "loading"
         ? "Loading"
         : status.charAt(0).toUpperCase() + status.slice(1);
-  const isWorking = (summary.working ?? 0) > 0;
+  const workspaceCount = workspaceAgents.length;
+  const activeWorkspaceCount = hasAssignedModel
+    ? workspaceAgents.filter((a) => a.status === "active" || a.status === "working").length
+    : 0;
+  const idleWorkspaceCount = hasAssignedModel
+    ? workspaceAgents.filter((a) => a.status === "idle" || !a.status).length
+    : workspaceCount;
+  const isWorking =
+    hasAssignedModel &&
+    ((summary.working ?? 0) > 0 || activeWorkspaceCount > 0);
+  const totalDisplay = workspaceCount > 0 ? (summary.total ?? 0) + workspaceCount : summary.total;
+  const workingDisplay = workspaceCount > 0
+    ? (summary.working ?? 0) + activeWorkspaceCount
+    : summary.working;
+  const idleDisplay = workspaceCount > 0
+    ? (summary.idle ?? 0) + idleWorkspaceCount
+    : summary.idle;
   const hasError = summary.issues !== null && summary.issues > 0;
   const visibleMembers = dashboard?.agents.slice(0, 2) ?? [];
   const modelSummary = assignedModel
@@ -540,19 +567,19 @@ function AgentCard({
         <div>
           <span className="navi-metric-label">TOTAL</span>
           <strong>
-            {summary.total ?? "—"}
+            {totalDisplay ?? "—"}
           </strong>
         </div>
         <div>
           <span className="navi-metric-label">WORKING</span>
           <strong>
-            {summary.working ?? "—"}
+            {workingDisplay ?? "—"}
           </strong>
         </div>
         <div>
           <span className="navi-metric-label">IDLE</span>
           <strong>
-            {summary.idle ?? "—"}
+            {idleDisplay ?? "—"}
           </strong>
         </div>
         <div>
@@ -669,6 +696,7 @@ function AgentCard({
             +{(dashboard?.counts.total ?? 0) - visibleMembers.length} more
           </span>
         )}
+
       </div>
 
     </article>

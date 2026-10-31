@@ -14,7 +14,6 @@ import {
   useMemo,
   useRef,
   useState,
-  useSyncExternalStore,
 } from "react";
 import {
   pipelineErrorResponseSchema,
@@ -36,18 +35,6 @@ import "./VisionMarketDataPanel.css";
 const PIPELINE_ID = "indian-equities";
 const AUTO_REFRESH_INTERVAL_MS = 6000;
 
-function subscribeClock(callback: () => void): () => void {
-  const timer = setInterval(callback, 1000);
-  return () => clearInterval(timer);
-}
-
-function getClockSnapshot(): number {
-  return Math.floor(Date.now() / 1000);
-}
-
-function getServerClockSnapshot(): number | null {
-  return null;
-}
 
 function formatTime(ms: number | null | undefined): string {
   if (!ms) return "—";
@@ -802,11 +789,16 @@ export default function VisionMarketDataPanel({
     };
   }, [filter, ipos.length, deduplicateIpoList]);
 
-  const nowSec = useSyncExternalStore(
-    subscribeClock,
-    getClockSnapshot,
-    getServerClockSnapshot,
-  );
+  const [nowSec, setNowSec] = useState<number | null>(null);
+
+  useEffect(() => {
+    setNowSec(Math.floor(Date.now() / 1000));
+    const timer = setInterval(() => {
+      setNowSec(Math.floor(Date.now() / 1000));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
   const mounted = nowSec !== null;
   const currentTime = useMemo(
     () => (nowSec !== null ? new Date(nowSec * 1000) : null),
@@ -1738,7 +1730,7 @@ export default function VisionMarketDataPanel({
             <input
               className="vision-search-input"
               onChange={(e) => handleSearchChange(e.target.value)}
-              placeholder="Search symbol, name, or IPO…"
+              placeholder="Search name"
               type="search"
               value={search}
             />

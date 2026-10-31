@@ -36,6 +36,54 @@
   pointer-events: auto;
 }
 
+.voice-assistant-has-slot {
+  display: none !important;
+}
+
+.voice-assistant-slot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  flex: 0 0 36px;
+}
+
+.voice-assistant-header-button {
+  display: inline-flex;
+  width: 36px;
+  height: 36px;
+  flex: 0 0 36px;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: #a5f3fc;
+  cursor: pointer;
+  transition:
+    background 160ms ease,
+    color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.voice-assistant-header-button:hover {
+  background: rgba(34, 211, 238, 0.12);
+  color: #67e8f9;
+}
+
+.voice-assistant-header-button.is-active {
+  color: #67e8f9;
+  background: rgba(34, 211, 238, 0.18);
+  box-shadow: 0 0 12px rgba(34, 211, 238, 0.25);
+}
+
+.voice-assistant-header-button svg {
+  width: 17px;
+  height: 17px;
+}
+
 .voice-assistant-compact .voice-assistant-copy {
   display: none;
 }

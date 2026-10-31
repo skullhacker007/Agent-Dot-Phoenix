@@ -1,5 +1,5 @@
-import AgentTeamPage from "@/components/agents/AgentTeamPage";
+import AgentHierarchyPage from "@/components/agents/AgentHierarchyPage";
 
 export default function JarvisTeamPage() {
-  return <AgentTeamPage teamId="JARVIS" />;
+  return <AgentHierarchyPage />;
 }

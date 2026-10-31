@@ -86,15 +86,15 @@ describe("resolveAgentTeamSummary", () => {
     });
   });
 
-  it("does not count unassigned chat activity", () => {
+  it("counts chatbot as an agent, but keeps it idle without model connection", () => {
     expect(
       resolveAgentTeamSummary(dashboard, null, activity("working"), false),
     ).toMatchObject({
-      total: 2,
+      total: 3,
       working: 1,
-      idle: 1,
+      idle: 2,
       issues: 0,
-      chatAgentStatus: null,
+      chatAgentStatus: "idle",
     });
   });
 
@@ -105,6 +105,17 @@ describe("resolveAgentTeamSummary", () => {
       idle: 0,
       issues: 0,
       status: "working",
+    });
+  });
+
+  it("shows assistant as idle without model connection when monitoring is unavailable", () => {
+    expect(resolveAgentTeamSummary(undefined, null, null, false)).toMatchObject({
+      total: 1,
+      working: 0,
+      idle: 1,
+      issues: 0,
+      status: "idle",
+      chatAgentStatus: "idle",
     });
   });
 

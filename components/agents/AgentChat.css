@@ -7,6 +7,25 @@
   z-index: 45;
 }
 
+.agent-chat-widget.is-embedded {
+  position: static;
+  width: 100%;
+  max-width: 100%;
+  z-index: 10;
+}
+
+.agent-chat-widget.is-embedded .agent-chat {
+  width: 100%;
+  max-width: 100%;
+  height: 520px;
+  border-radius: 1rem;
+  border: 1px solid rgba(56, 189, 248, 0.22);
+  background:
+    linear-gradient(115deg, rgba(34, 211, 238, 0.05), transparent 48%),
+    rgba(10, 18, 32, 0.96);
+  box-shadow: 0 1rem 3rem rgba(0, 0, 0, 0.5);
+}
+
 .agent-chat {
   display: flex;
   width: min(25rem, calc(100vw - 2rem));

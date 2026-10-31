@@ -937,14 +937,14 @@
 }
 
 .status-idle > span {
-  background: #f87171;
-  box-shadow: 0 0 8px rgba(248, 113, 113, 0.4);
+  background: #94a3b8;
+  box-shadow: none;
 }
 
 .status-idle {
   border-color: transparent;
   background: transparent;
-  color: #fca5a5;
+  color: #94a3b8;
 }
 
 .status-stalled > span,
